@@ -1952,11 +1952,10 @@ function driveUpload(metadata, content, fileId) {
   }).then(function(res){ return res.json(); });
 }
 
-// Pasta "Departamento Comercial" dentro de "Somnium Properties" no Drive (ID fixo)
-var DEPT_COMERCIAL_ID = '1KyMJ5AfjrOUgCTHVjUbSV8j2O_WTDLC6';
+// Pasta "Lista Imoveis" dentro de "Departamento Comercial / Somnium Properties" (ID fixo)
+var LISTA_IMOVEIS_ID = '1FT6uIpAad7R_XnGO1rHU1uLTsR-xOtFK';
 function encontrarPastaDeptComercial() {
-  // Verificar que a pasta existe
-  return driveAPI('GET', 'files/' + DEPT_COMERCIAL_ID, null, {
+  return driveAPI('GET', 'files/' + LISTA_IMOVEIS_ID, null, {
     fields: 'id,name,trashed',
   }).then(function(result) {
     if (result.trashed) throw new Error('Pasta no lixo');
@@ -2024,26 +2023,44 @@ function inicializarDrive() {
   });
 }
 
-// Listar subpastas de Departamento Comercial como projectos
-function listarProjetos(deptId) {
+// Listar imóveis dentro de Lista Imoveis / [Estado] / [Imóvel]
+function listarProjetos(listaId) {
+  // Primeiro listar pastas de estado
   return driveAPI('GET', 'files', null, {
-    q: "'" + deptId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-    fields: 'files(id,name,modifiedTime)',
+    q: "'" + listaId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    fields: 'files(id,name)',
     orderBy: 'name',
-    pageSize: 100,
-  }).then(function(result) {
+    pageSize: 50,
+  }).then(function(estadoFolders) {
+    // Para cada estado, listar os imóveis dentro
+    var promises = (estadoFolders.files || []).map(function(estadoFolder) {
+      return driveAPI('GET', 'files', null, {
+        q: "'" + estadoFolder.id + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id,name)',
+        orderBy: 'name',
+        pageSize: 50,
+      }).then(function(imoveis) {
+        return (imoveis.files || []).map(function(f) {
+          return { id: f.id, name: f.name, estado: estadoFolder.name };
+        });
+      });
+    });
+    return Promise.all(promises);
+  }).then(function(arrays) {
+    var all = [].concat.apply([], arrays);
+    // Ordenar por nome
+    all.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
     var selector = document.getElementById('imovel-selector');
     selector.innerHTML = '<option value="">-- Seleccionar projecto --</option>';
     window._projetosPastas = {};
-    if (result.files) {
-      result.files.forEach(function(folder) {
-        var opt = document.createElement('option');
-        opt.value = folder.id;
-        opt.textContent = folder.name;
-        selector.appendChild(opt);
-        window._projetosPastas[folder.id] = folder.name;
-      });
-    }
+    all.forEach(function(item) {
+      var opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.name + ' (' + item.estado + ')';
+      selector.appendChild(opt);
+      window._projetosPastas[item.id] = item.name;
+    });
   });
 }
 
