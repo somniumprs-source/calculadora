@@ -1710,6 +1710,71 @@ function imprimirRelatorio(){
   janela.document.write('</body></html>');
   janela.document.close();
   setTimeout(function(){janela.print();},500);
+  // Guardar relatório no Drive (1. Documentos)
+  guardarRelatorioDrive();
+}
+
+function guardarRelatorioDrive() {
+  if (!isTokenValid() || !window._currentPastaId) return;
+  var conteudo = document.getElementById('relatorio-comp').innerHTML;
+  if (!conteudo || conteudo.trim() === '') return;
+
+  var htmlCompleto = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<title>Relatório Comparáveis — ' + (currentImovelNome || 'Somnium Properties') + '</title>' +
+    '<style>body{font-family:Arial,sans-serif;padding:30px;color:#1A1A1A;max-width:900px;margin:0 auto}' +
+    '@media print{body{padding:15px}}</style></head><body>' +
+    conteudo + '</body></html>';
+
+  var pastaId = window._currentPastaId;
+  var nomeArquivo = 'Relatório Comparáveis - ' + (currentImovelNome || 'Imóvel') + '.html';
+
+  // Encontrar ou criar "1. Documentos"
+  driveAPI('GET', 'files', null, {
+    q: "name='1. Documentos' and mimeType='application/vnd.google-apps.folder' and '" + pastaId + "' in parents and trashed=false",
+    fields: 'files(id,name)',
+  }).then(function(result) {
+    if (result.files && result.files.length > 0) return result.files[0].id;
+    return driveAPI('POST', 'files', {
+      name: '1. Documentos',
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [pastaId],
+    }).then(function(folder){ return folder.id; });
+  }).then(function(docsFolderId) {
+    // Verificar se já existe um relatório anterior para actualizar
+    return driveAPI('GET', 'files', null, {
+      q: "name='" + nomeArquivo.replace(/'/g, "\\'") + "' and '" + docsFolderId + "' in parents and trashed=false",
+      fields: 'files(id)',
+    }).then(function(result) {
+      var existingId = (result.files && result.files.length > 0) ? result.files[0].id : null;
+      var boundary = 'somnium_rel_' + Date.now();
+      var metadata = existingId
+        ? { name: nomeArquivo, mimeType: 'text/html' }
+        : { name: nomeArquivo, mimeType: 'text/html', parents: [docsFolderId] };
+
+      var url = existingId
+        ? 'https://www.googleapis.com/upload/drive/v3/files/' + existingId + '?uploadType=multipart'
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+      var body = '--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' +
+        JSON.stringify(metadata) +
+        '\r\n--' + boundary + '\r\nContent-Type: text/html\r\n\r\n' +
+        htmlCompleto +
+        '\r\n--' + boundary + '--';
+
+      return fetch(url, {
+        method: existingId ? 'PATCH' : 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'multipart/related; boundary=' + boundary,
+        },
+        body: body,
+      });
+    });
+  }).then(function() {
+    setSaveStatus('✓ Relatório comparáveis guardado em "' + currentImovelNome + '/1. Documentos"');
+  }).catch(function(e) {
+    console.error('Erro ao guardar relatório:', e);
+  });
 }
 
 // Sincronizar título editável com label do resultado
