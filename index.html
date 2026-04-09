@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Somnium Properties — Calculadora</title>
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Google API Client -->
+<script src="https://apis.google.com/js/api.js"></script>
+<script>
+const GOOGLE_CLIENT_ID = '554869709587-3utmmi1de4tbhhl22dc1o68ovvtk89mb.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/drive';
+const FOLDER_NAME = 'Somnium Properties';
+let accessToken = null;
+let currentImovelId = null;
+let currentImovelNome = null;
+let autoSaveTimer = null;
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #F5F4F0; color: #1A1A1A; min-height: 100vh; }
+
+/* HEADER */
+.header { background: #1A1A1A; border-bottom: 3px solid #C8A96E; }
+.header-inner { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+.logo { font-size: 20px; font-weight: 700; color: #C8A96E; letter-spacing: 1px; }
+.logo-sub { font-size: 9px; color: #7A7A7A; letter-spacing: 2px; text-transform: uppercase; }
+.header-right { font-size: 11px; color: #C8A96E; border: 1px solid #C8A96E40; padding: 4px 10px; border-radius: 4px; }
+
+/* TABS */
+.tabs-bar { background: #242424; border-bottom: 2px solid #C8A96E30; }
+.tabs-inner { max-width: 1200px; margin: 0 auto; display: flex; }
+.tab { padding: 12px 22px; font-size: 12px; font-weight: 700; color: #7A7A7A; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.15s; letter-spacing: 0.3px; white-space: nowrap; }
+.tab:hover { color: #C8A96E; background: #2E2E2E; }
+.tab.active { color: #C8A96E; border-bottom: 3px solid #C8A96E; background: #2A2A2A; }
+
+/* LAYOUT */
+.content { max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.two-col { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+
+/* CARDS */
+.card { background: #fff; border-radius: 10px; border: 1px solid #E8E4DC; overflow: hidden; margin-bottom: 14px; }
+.card-hdr { background: #EDE8DF; border-bottom: 2px solid #C8A96E; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+.card-letter { width: 22px; height: 22px; background: #C8A96E; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10px; color: #fff; flex-shrink: 0; }
+.card-title { font-size: 11px; font-weight: 700; color: #8C6A30; letter-spacing: 0.5px; text-transform: uppercase; }
+
+/* ROWS */
+.row { display: flex; align-items: center; border-bottom: 1px solid #F0EDE8; min-height: 40px; }
+.row:last-child { border-bottom: none; }
+.row:hover { background: #FAFAF8; }
+.row.alt { background: #FAFAF8; }
+.row.alt:hover { background: #F5F2EC; }
+.rl { flex: 1; padding: 7px 14px; font-size: 12.5px; color: #3A3A3A; line-height: 1.3; }
+.rl small { display: block; font-size: 10.5px; color: #AAAAAA; margin-top: 1px; font-style: italic; }
+.rv { padding: 5px 12px 5px 0; min-width: 160px; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+
+input[type=number], select {
+  width: 138px; padding: 5px 8px; font-size: 12.5px; font-family: Arial, sans-serif;
+  border: 1.5px solid #C8A96E; border-radius: 5px; background: #FFFEF5;
+  color: #1A3A6B; font-weight: 700; text-align: right; outline: none;
+  -moz-appearance: textfield;
+}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number]:focus, select:focus { border-color: #8C6A30; box-shadow: 0 0 0 2px #C8A96E25; }
+select { cursor: pointer; text-align: left; }
+.unit { font-size: 11px; color: #AAA; flex-shrink: 0; }
+.cv { font-size: 12.5px; color: #3A3A3A; background: #F5F5F3; padding: 5px 8px; border-radius: 5px; border: 1px solid #E8E4DC; min-width: 138px; text-align: right; display: inline-block; }
+
+.row-total { background: #F5EDD8 !important; border-top: 2px solid #C8A96E !important; border-bottom: 2px solid #C8A96E !important; }
+.row-total .rl { font-weight: 700; font-size: 12.5px; color: #8C6A30; }
+.row-total .tv { font-size: 14px; font-weight: 700; color: #8C6A30; padding: 7px 12px 7px 0; min-width: 160px; text-align: right; }
+
+.info-box { padding: 8px 14px; border-bottom: 1px solid #E8D5AA; font-size: 11px; line-height: 1.5; }
+.ib-gold { background: #FFFBF0; color: #7A5200; }
+.ib-red  { background: #FDF0F0; color: #8B1A1A; border-color: #F5C6C6; }
+.ib-blue { background: #EFF4FF; color: #1A3A6B; border-color: #B8CCEE; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+.b6  { background: #EBF5EC; color: #1B5E20; }
+.b23 { background: #FEF8EC; color: #7A5200; }
+
+/* SIDEBAR */
+.sidebar { position: sticky; top: 16px; }
+.resumo { background: #fff; border-radius: 10px; border: 1px solid #E8E4DC; overflow: hidden; }
+.r-hdr { background: #1A1A1A; padding: 12px 16px; border-bottom: 3px solid #C8A96E; }
+.r-hdr h2 { font-size: 11px; font-weight: 700; color: #C8A96E; letter-spacing: 1px; text-transform: uppercase; }
+.r-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 14px; border-bottom: 1px solid #F0EDE8; font-size: 12.5px; }
+.r-row.alt { background: #FAFAF8; }
+.r-row.sep { height: 4px; background: #F5F2EC; border-bottom: 1px solid #E8E4DC; }
+.r-row.key { background: #F5EDD8; border-top: 2px solid #C8A96E; border-bottom: 2px solid #C8A96E; }
+.r-row.key .rrl { font-weight: 700; color: #8C6A30; }
+.r-row.key .rrv { font-size: 14px; font-weight: 700; color: #8C6A30; }
+.r-row.ok { background: #EBF5EC; border-top: 2px solid #2E7D32; border-bottom: 2px solid #2E7D32; }
+.r-row.ok .rrl { font-weight: 700; color: #1B5E20; }
+.r-row.ok .rrv { font-size: 16px; font-weight: 700; color: #1B5E20; }
+.rrl { color: #5A5A5A; }
+.rrv { font-weight: 600; text-align: right; }
+.kpi-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: #E8E4DC; }
+.kpi { background: #fff; padding: 9px 10px; text-align: center; }
+.kpi-l { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.kpi-v { font-size: 15px; font-weight: 700; color: #8C6A30; }
+.nota-l { background: #F9F9F7; border: 1px solid #E8E4DC; border-radius: 7px; padding: 9px 12px; margin-top: 10px; font-size: 10.5px; color: #8A8A8A; line-height: 1.6; }
+.aviso-box { background: #FEF8EC; border: 1px solid #E8D5AA; border-left: 3px solid #C8A96E; border-radius: 6px; padding: 9px 12px; margin-top: 10px; font-size: 11px; color: #7A5200; line-height: 1.5; }
+.aviso-box strong { display: block; margin-bottom: 3px; color: #8C6A30; font-size: 11.5px; }
+
+/* STRESS TEST */
+.stress-grid { display: grid; grid-template-columns: 200px repeat(9,1fr); gap: 0; border: 1px solid #E8E4DC; border-radius: 8px; overflow: hidden; font-size: 11.5px; }
+.sg-hdr { background: #1A1A1A; color: #C8A96E; font-weight: 700; padding: 8px 6px; text-align: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; border-right: 1px solid #333; }
+.sg-hdr:first-child { text-align: left; padding-left: 10px; background: #222; }
+.sg-hdr.mod { background: #1E3A6B; color: #B8CCEE; }
+.sg-hdr.sev { background: #6B1A1A; color: #F5C6C6; }
+.sg-hdr.comb { background: #2A2A2A; color: #C8A96E; }
+.sg-lbl { background: #EDE8DF; font-weight: 700; color: #8C6A30; padding: 7px 10px; border-right: 1px solid #E8E4DC; border-top: 1px solid #E8E4DC; font-size: 11px; }
+.sg-base { background: #F5EDD8; color: #8C6A30; font-weight: 700; text-align: right; padding: 7px 6px; border-right: 1px solid #E8E4DC; border-top: 1px solid #E8E4DC; }
+.sg-mod { background: #EFF4FF; color: #1A3A6B; text-align: right; padding: 7px 6px; border-right: 1px solid #E8E4DC; border-top: 1px solid #E8E4DC; }
+.sg-sev { background: #FDF0F0; color: #8B1A1A; text-align: right; padding: 7px 6px; border-right: 1px solid #E8E4DC; border-top: 1px solid #E8E4DC; }
+.sg-comb { background: #F0EDE8; color: #2C2C2C; text-align: right; padding: 7px 6px; border-right: 1px solid #E8E4DC; border-top: 1px solid #E8E4DC; font-weight: 700; }
+.sg-pos { color: #1B5E20 !important; }
+.sg-neg { color: #8B1A1A !important; }
+
+/* COMPARÁVEIS */
+.comp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.comp-table th { background: #1A1A1A; color: #C8A96E; padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 700; border-right: 1px solid #333; }
+.comp-table th:last-child { border-right: none; }
+.comp-table td { padding: 7px 10px; border-bottom: 1px solid #F0EDE8; border-right: 1px solid #F0EDE8; }
+.comp-table td:last-child { border-right: none; }
+.comp-table tr:nth-child(even) td { background: #FAFAF8; }
+.comp-table tr:hover td { background: #F5F2EC; }
+.comp-table .avg-row td { background: #F5EDD8; font-weight: 700; color: #8C6A30; border-top: 2px solid #C8A96E; }
+.comp-result { background: #EBF5EC; border: 2px solid #2E7D32; border-radius: 8px; padding: 12px 16px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; }
+.comp-result .lbl { font-size: 13px; font-weight: 700; color: #1B5E20; }
+.comp-result .val { font-size: 22px; font-weight: 700; color: #1B5E20; }
+
+/* TABELAS FISCAIS */
+.fiscal-section { margin-bottom: 20px; background: #fff; border-radius: 10px; border: 1px solid #E8E4DC; overflow: hidden; }
+.fiscal-title { background: #1A1A1A; color: #C8A96E; padding: 10px 16px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+.fiscal-title .lei { font-size: 9.5px; color: #888; font-weight: 400; margin-left: auto; font-style: italic; }
+.fiscal-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.fiscal-table th { background: #EDE8DF; color: #8C6A30; padding: 7px 12px; text-align: left; font-size: 10.5px; font-weight: 700; border-bottom: 1px solid #E8D5AA; border-right: 1px solid #E8E4DC; }
+.fiscal-table th:last-child { border-right: none; }
+.fiscal-table td { padding: 7px 12px; border-bottom: 1px solid #F0EDE8; border-right: 1px solid #F0EDE8; color: #3A3A3A; background: #fff; }
+.fiscal-table td:last-child { border-right: none; }
+.fiscal-table tr:last-child td { border-bottom: none; }
+.fiscal-table tr:nth-child(even) td { background: #FAFAF8; }
+.ok-row td { background: #EBF5EC !important; color: #1B5E20 !important; font-weight: 700; }
+.warn-row td { background: #FEF8EC !important; color: #7A5200; }
+.alert-row td { background: #FDF0F0 !important; color: #8B1A1A; }
+.taxa { font-weight: 700; color: #1A3A6B; }
+.fonte { font-size: 10px; color: #999; font-style: italic; }
+
+.two-col-fiscal { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.two-col-fiscal > div { min-width: 0; }
+@media (max-width: 760px) { .two-col-fiscal { grid-template-columns: 1fr; } }
+
+/* INPUTS NA TABELA DE COMPARÁVEIS */
+.comp-input { width: 100%; border: 1px solid #E8E4DC; border-radius: 4px; padding: 4px 6px; font-size: 12px; background: #FFFEF5; color: #1A3A6B; font-family: Arial; text-align: right; outline: none; }
+.comp-input::-webkit-outer-spin-button, .comp-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.comp-input[type=number] { -moz-appearance: textfield; }
+.comp-input:focus { border-color: #C8A96E; }
+</style>
+</head>
+<body>
+
+<!-- BARRA DE SESSÃO E IMÓVEL -->
+<div id="session-bar" style="background:#0F0F0F;border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;font-size:11px;flex-wrap:wrap">
+  <!-- Login Google -->
+  <div id="login-section">
+    <div id="g_id_onload"
+      data-client_id="554869709587-3utmmi1de4tbhhl22dc1o68ovvtk89mb.apps.googleusercontent.com"
+      data-callback="handleGoogleLogin"
+      data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard" data-size="small" data-theme="outline" data-text="sign_in_with" data-shape="rectangular"></div>
+  </div>
+  <!-- Info do utilizador (aparece após login) -->
+  <div id="user-section" style="display:none;align-items:center;gap:10px;flex-wrap:wrap">
+    <img id="user-avatar" style="width:24px;height:24px;border-radius:50%" src="" alt="">
+    <span id="user-name" style="color:#C8A96E;font-weight:700"></span>
+    <span style="color:#555">|</span>
+    <span style="color:#888">Projecto:</span>
+    <select id="imovel-selector" onchange="carregarImovel(this.value)"
+      style="background:#1A1A1A;color:#C8A96E;border:1px solid #C8A96E40;border-radius:4px;padding:3px 8px;font-size:11px;font-family:Arial;outline:none;cursor:pointer;max-width:250px">
+      <option value="">-- Seleccionar projecto --</option>
+    </select>
+    <button onclick="novoImovel()" style="background:#C8A96E;color:#1A1A1A;border:none;border-radius:4px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer">+ NOVO</button>
+    <button onclick="guardarImovel()" id="btn-guardar" style="background:#1B5E20;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;display:none">💾 GUARDAR</button>
+    <button onclick="logarOut()" style="background:transparent;color:#555;border:1px solid #333;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer">Sair</button>
+    <span id="save-status" style="color:#555;font-size:10px;font-style:italic"></span>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-inner">
+    <div><div class="logo">SOMNIUM</div><div class="logo-sub">Properties</div></div>
+    <div class="header-right">Calculadora de Investimento · Lei Portuguesa 2026</div>
+  </div>
+</div>
+
+<div class="tabs-bar">
+  <div class="tabs-inner">
+    <div class="tab active" onclick="showTab('calc',this)">📊 Calculadora</div>
+    <div class="tab" onclick="showTab('stress',this)">📈 Stress Tests</div>
+    <div class="tab" onclick="showTab('comp',this)">🏘 Comparáveis</div>
+    <div class="tab" onclick="showTab('fiscal',this)">📋 Tabelas Fiscais</div>
+    <div class="tab" onclick="showTab('caep',this)">🤝 CAEP</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TAB 1 — CALCULADORA
+══════════════════════════════════════════════════════════════════════ -->
+<div class="content">
+<div id="tab-calc" class="tab-panel active">
+<div class="two-col">
+<div>
+
+<!-- A. AQUISIÇÃO -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">A</div><div class="card-title">Aquisição do Imóvel</div></div>
+  <div class="info-box ib-gold">⚠ IMT e IS calculados sobre <strong>max(compra, VPT)</strong> — CEIS Verba 1.1 + Art.º 12.º CIMT</div>
+<div class="info-box" style="background:#FDF0F0;color:#8B1A1A;border-color:#F5C6C6">🔴 <strong>Atenção — Empresa Imobiliária:</strong> A isenção IMT (Art.º 7.º CIMT) <strong>não é automática</strong> na 1.ª operação. Exige certidão de exercício habitual (revenda em cada um dos 2 anos anteriores). Sem historial: paga IMT na escritura e pede reembolso após a venda. Confirmar sempre com TOC antes da escritura.</div>
+  <div class="row"><div class="rl">Valor de compra</div><div class="rv"><input type="number" id="compra" value="185000" step="1000" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">VPT — Valor Patrimonial Tributário <small>caderneta predial AT</small></div><div class="rv"><input type="number" id="vpt" value="76580" step="500" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Base tributável <small>max(compra, VPT)</small></div><div class="rv"><span class="cv" id="v-base">—</span></div></div>
+  <div class="row alt"><div class="rl">Finalidade / Enquadramento</div><div class="rv"><select id="finalidade" onchange="calc()"><option>Empresa Imobiliária</option><option>Hab. Própria Permanente</option><option>Hab. Secundária</option></select></div></div>
+  <div class="row"><div class="rl">IMT <small id="imt-hint">Empresa Imobiliária: isento 1 ano (Art.º 7.º CIMT + Lei 56/2023)</small></div><div class="rv"><span class="cv" id="v-imt">0 €</span></div></div>
+  <div class="row alt"><div class="rl">Imposto de Selo (0,8% sobre base tributável) <small>CEIS Verba 1.1</small></div><div class="rv"><span class="cv" id="v-is">—</span></div></div>
+  <div class="row"><div class="rl">Escritura + Registos <small>(tipicamente 500–725 €)</small></div><div class="rv"><input type="number" id="escrit" value="0" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">CPCV Compra — minuta <small>(tipicamente 100–200 €)</small></div><div class="rv"><input type="number" id="cpcv_c" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Due diligence jurídica — advogado/solicitador <small>(tipicamente 300–800 €)</small></div><div class="rv"><input type="number" id="due_dil" value="0" oninput="calc()"></div></div>
+  <div class="row row-total"><div class="rl">Total aquisição</div><div class="tv" id="v-tacq">—</div></div>
+</div>
+
+<!-- B. FINANCIAMENTO -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">B</div><div class="card-title">Financiamento — zeros = 100% capitais próprios</div></div>
+  <div class="row"><div class="rl">Percentagem financiada <small id="ltv-hint"></small></div><div class="rv"><input type="number" id="perc_fin" value="0" min="0" max="100" oninput="calc()"><span class="unit">%</span></div></div>
+  <div class="row alt"><div class="rl">Valor financiado</div><div class="rv"><span class="cv" id="v-fin">0 €</span></div></div>
+  <div class="row"><div class="rl">Prazo (anos)</div><div class="rv"><input type="number" id="prazo" value="30" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Taxa de juro (TAN)</div><div class="rv"><input type="number" id="tan" value="3.5" step="0.1" oninput="calc()"><span class="unit">%</span></div></div>
+  <div class="row"><div class="rl">Tipo de taxa</div><div class="rv"><select id="tipo_taxa" onchange="calc()"><option>Variável</option><option>Fixa</option></select></div></div>
+  <div class="row alt"><div class="rl">Comissões bancárias — dossier + avaliação + formalização <small>(tipicamente 1.000–1.500 €)</small></div><div class="rv"><input type="number" id="comis_banc" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">IS sobre financiamento (0,5%) <small>CEIS Verba 17.1 — mútuo</small></div><div class="rv"><span class="cv" id="v-isfin">0 €</span></div></div>
+  <div class="row alt"><div class="rl">Registo de hipoteca <small>(tipicamente 200–300 €)</small></div><div class="rv"><input type="number" id="hipot" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Prestação mensal estimada</div><div class="rv"><span class="cv" id="v-prest">0 €</span></div></div>
+  <div class="row alt"><div class="rl">Penalização amortização antecipada <small id="penal-hint">Variável 0,5% · Fixa 2% — DL 74-A/2017</small></div><div class="rv"><span class="cv" id="v-penal">0 €</span></div></div>
+  <div class="row row-total"><div class="rl">Total financiamento</div><div class="tv" id="v-tfin">0 €</div></div>
+</div>
+
+<!-- C. OBRA -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">C</div><div class="card-title">Obra e Reabilitação</div></div>
+  <div class="info-box ib-gold">⚠ Introduzir <strong>SEM IVA</strong>. Se recebeu valor com IVA, divida antes de introduzir.</div>
+  <div class="info-box ib-blue"><strong>Regras IVA (gestor de obra):</strong> ARU = tudo 6% · Sem ARU + sem ampliação = MO 6% + mat. 23% · Com ampliação = tudo 23%</div>
+  <div class="row"><div class="rl">Orçamento de obra (sem IVA)</div><div class="rv"><input type="number" id="obra" value="0" step="1000" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">% Mão-de-obra sobre total <small>tipicamente 50–65% em reabilitação</small></div><div class="rv"><input type="number" id="pmo" value="60" min="0" max="100" oninput="calc()"><span class="unit">%</span></div></div>
+  <div class="row"><div class="rl">Zona ARU?</div><div class="rv"><select id="aru" onchange="calc()"><option>Não</option><option>Sim</option></select></div></div>
+  <div class="row alt" id="row-amp"><div class="rl">Tem ampliação?</div><div class="rv"><select id="amp" onchange="calc()"><option>Não</option><option>Sim</option></select></div></div>
+  <div class="row"><div class="rl">IVA calculado automaticamente <span id="bmo"></span><span id="bmat"></span></div><div class="rv"><span class="cv" id="v-iva">0 €</span></div></div>
+  <div class="row alt"><div class="rl">Licenciamento (projecto + taxas + solicitador)</div><div class="rv"><input type="number" id="lic" value="0" step="500" oninput="calc()"></div></div>
+  <div class="row row-total"><div class="rl">Total obra (c/ IVA + licenciamento)</div><div class="tv" id="v-tobr">0 €</div></div>
+</div>
+
+<!-- D. MANUTENÇÃO -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">D</div><div class="card-title">Custos Durante a Retenção</div></div>
+  <div class="row"><div class="rl">Meses de retenção</div><div class="rv"><input type="number" id="meses" value="9" min="1" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Seguros <small>(tipicamente 30–80 €/mês)</small></div><div class="rv"><input type="number" id="seg" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Condomínio <small>(tipicamente 30–80 €/mês · 0 se moradia)</small></div><div class="rv"><input type="number" id="cond" value="0" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Electricidade + Água <small>(tipicamente 80–150 €/mês)</small></div><div class="rv"><input type="number" id="util" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">N.º tranches de obra</div><div class="rv"><input type="number" id="ntranch" value="2" min="0" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Custo por tranche <small>(tipicamente 150–300 € por deslocação do empreiteiro)</small></div><div class="rv"><input type="number" id="ctranch" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Taxa IMI municipal <small>Lei 56/2023: IMI devido imediatamente (sem isenção) · 0,3% Coimbra</small></div><div class="rv"><input type="number" id="taxa_imi" value="0.3" step="0.05" min="0" max="0.5" oninput="calc()"><span class="unit">%</span></div></div>
+  <div class="row alt"><div class="rl">Ligação de serviços pós-obra — electricidade + água <small>(tipicamente 500–1.200 €)</small></div><div class="rv"><input type="number" id="lig_serv" value="0" step="100" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">IMI estimado no período <small>VPT × taxa IMI × (meses/12)</small></div><div class="rv"><span class="cv" id="v-imi">0 €</span></div></div>
+  <div class="row row-total"><div class="rl">Total manutenção</div><div class="tv" id="v-tman">0 €</div></div>
+</div>
+
+<!-- E. VENDA -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">E</div><div class="card-title">Venda</div></div>
+  <div class="row"><div class="rl">Valor estimado de venda (VVR)</div><div class="rv"><input type="number" id="vvr" value="0" step="5000" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Comissão imobiliária (%)</div><div class="rv"><input type="number" id="com_pct" value="2.5" step="0.5" oninput="calc()"><span class="unit">%</span></div></div>
+  <div class="row"><div class="rl">Comissão + IVA 23% (€)</div><div class="rv"><span class="cv" id="v-comeur">0 €</span></div></div>
+  <div class="row alt"><div class="rl">CPCV Venda — minuta <small>(tipicamente 100–200 €)</small></div><div class="rv"><input type="number" id="cpcv_v" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Certificado Energético — obrigatório para escritura <small>(tipicamente 150–400 €)</small></div><div class="rv"><input type="number" id="cert_en" value="0" oninput="calc()"></div></div>
+  <div class="row alt"><div class="rl">Home staging + fotografia profissional <small>(tipicamente 800–2.500 €· opcional)</small></div><div class="rv"><input type="number" id="staging" value="0" oninput="calc()"></div></div>
+  <div class="row"><div class="rl">Outros custos de venda — advogado, procuração <small>(tipicamente 150–500 €)</small></div><div class="rv"><input type="number" id="outros_v" value="0" oninput="calc()"></div></div>
+  <div class="row row-total"><div class="rl">Total custos venda</div><div class="tv" id="v-tven">100 €</div></div>
+</div>
+
+<!-- F. FISCALIDADE -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">F</div><div class="card-title">Fiscalidade — Lei Portuguesa 2026</div></div>
+  <div class="row"><div class="rl">Regime fiscal</div><div class="rv"><select id="regime" onchange="calc()"><option>Empresa (IRC)</option><option>Empresa Imobiliária (IRC + isenção IMT)</option><option>Particular (IRS)</option></select></div></div>
+  <div class="info-box ib-gold" id="regime-info"></div>
+  <div id="bloco-irc">
+    <div class="row"><div class="rl">Derrama municipal <small>editável — varia por município (0% a 1,5%)</small></div><div class="rv"><input type="number" id="derrama_pct" value="1.5" step="0.1" min="0" max="1.5" oninput="calc()"><span class="unit">%</span></div></div>
+    <div class="row alt"><div class="rl">IRC 17% (≤ 50.000 €) <small>CIRC Art.º 87.º n.º 2 — taxa reduzida PME</small></div><div class="rv"><span class="cv" id="v-irc1">0 €</span></div></div>
+    <div class="row"><div class="rl">IRC 21% (> 50.000 €) <small>CIRC Art.º 87.º n.º 1</small></div><div class="rv"><span class="cv" id="v-irc2">0 €</span></div></div>
+    <div class="row alt"><div class="rl">Derrama municipal <span id="derrama-lbl">(1,5%)</span></div><div class="rv"><span class="cv" id="v-derr">0 €</span></div></div>
+  </div>
+  <div id="bloco-irs" style="display:none">
+    <div class="info-box ib-red">⚠ <strong>OE 2024:</strong> Imóveis adquiridos após 2022 — exclusão 0%, taxa autónoma 28%. Anteriores a 2023 — exclusão 50%, taxa autónoma 28%.</div>
+    <div class="row"><div class="rl">Ano de aquisição do imóvel</div><div class="rv"><input type="number" id="ano_aq" value="2024" min="1990" max="2026" oninput="calc()"></div></div>
+    <div class="row alt"><div class="rl">Exclusão do ganho</div><div class="rv"><span class="cv" id="v-exclusao">—</span></div></div>
+    <div class="row"><div class="rl">Opção de englobamento?</div><div class="rv"><select id="englobamento" onchange="calc()"><option>Não (28% autónoma)</option><option>Sim (taxa marginal — opção global, inclui todos os cap.)</option></select></div></div>
+    <div class="row alt" id="row-irs-taxa" style="display:none"><div class="rl">Taxa marginal IRS</div><div class="rv"><input type="number" id="irs_taxa" value="48" step="1" min="13" max="48" oninput="calc()"><span class="unit">%</span></div></div>
+    <div class="row"><div class="rl">IRS sobre mais-valias</div><div class="rv"><span class="cv" id="v-irsmv">0 €</span></div></div>
+  </div>
+  <div class="row row-total"><div class="rl">Total impostos estimados</div><div class="tv" id="v-timp">0 €</div></div>
+  <div class="info-box" id="imt-caducidade-box" style="display:none;background:#FDF0F0;color:#8B1A1A;border-color:#F5C6C6">
+    ⚠ <strong>Atenção:</strong> Os meses de retenção ultrapassam 1 ano (<span id="meses-display">0</span> meses).
+    A isenção IMT <strong>caduca</strong> — a empresa terá de pagar
+    IMT + juros compensatórios (4%/ano). Custo adicional estimado:
+    <strong id="v-imt-caducidade">—</strong>.
+    Rever prazo de venda ou renegociar condições.
+  </div>
+</div>
+
+<!-- G. RESULTADOS -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">G</div><div class="card-title">Resultados e Rentabilidade</div></div>
+  <div class="row"><div class="rl">Capitais próprios necessários</div><div class="rv"><span class="cv" id="v-cap">—</span></div></div>
+  <div class="row alt"><div class="rl">VVR mínimo (break-even) <small>preço de venda para não perder dinheiro</small></div><div class="rv"><span class="cv" id="v-breakeven" style="color:#8B1A1A;font-weight:700">—</span></div></div>
+  <div class="row alt"><div class="rl">Lucro estimado — bruto</div><div class="rv"><span class="cv" id="v-lb">—</span></div></div>
+  <div class="row"><div class="rl"><strong>Lucro líquido (após impostos)</strong></div><div class="rv"><span class="cv" id="v-ll" style="font-weight:700;font-size:13px">—</span></div></div>
+  <div class="row alt"><div class="rl">Retorno Total %</div><div class="rv"><span class="cv" id="v-rt" style="color:#8C6A30;font-weight:700">—</span></div></div>
+  <div class="row"><div class="rl">Retorno Cash-on-Cash %</div><div class="rv"><span class="cv" id="v-coc" style="color:#8C6A30;font-weight:700">—</span></div></div>
+  <div class="row alt"><div class="rl"><strong>Retorno Anualizado %</strong></div><div class="rv"><span class="cv" id="v-ra" style="color:#8C6A30;font-weight:700;font-size:13px">—</span></div></div>
+  <div class="row"><div class="rl">Retorno Líquido % (após impostos)</div><div class="rv"><span class="cv" id="v-rl" style="color:#1B5E20;font-weight:700">—</span></div></div>
+  <div class="row alt"><div class="rl">Retorno Líquido Anualizado %</div><div class="rv"><span class="cv" id="v-rla" style="color:#1B5E20;font-weight:700">—</span></div></div>
+  <!-- Dividendos -->
+  <div id="div-section">
+    <div class="info-box ib-gold" style="border-top:2px solid #C8A96E">⚠ <strong>Lucro líquido empresa ≠ dinheiro do sócio.</strong> Distribuição de dividendos: retenção 28% (Art.º 71.º n.º 1 CIRS)</div>
+    <div class="row"><div class="rl">% a distribuir como dividendo</div><div class="rv"><input type="number" id="pct_div" value="100" min="0" max="100" oninput="calc()"><span class="unit">%</span></div></div>
+    <div class="row alt"><div class="rl">Retenção na fonte (28%)</div><div class="rv"><span class="cv" id="v-ret-div">0 €</span></div></div>
+    <div class="row row-total"><div class="rl">Líquido recebido pelo sócio</div><div class="tv" id="v-liq-socio">—</div></div>
+  </div>
+</div>
+
+</div><!-- /main col -->
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="resumo">
+    <div class="r-hdr"><h2>Resumo do Investimento</h2></div>
+    <div class="r-row alt"><span class="rrl">Valor de compra</span><span class="rrv" id="r-compra">—</span></div>
+    <div class="r-row"><span class="rrl">Base tributável</span><span class="rrv" id="r-base">—</span></div>
+    <div class="r-row alt"><span class="rrl">IMT</span><span class="rrv" id="r-imt">—</span></div>
+    <div class="r-row"><span class="rrl">Obra c/ IVA</span><span class="rrv" id="r-obra">—</span></div>
+    <div class="r-row alt"><span class="rrl">Retenção</span><span class="rrv" id="r-meses">—</span></div>
+    <div class="r-row"><span class="rrl">Capitais próprios</span><span class="rrv" id="r-cap">—</span></div>
+    <div class="r-row sep"></div>
+    <div class="r-row alt"><span class="rrl">VVR (valor de venda)</span><span class="rrv" id="r-vvr">—</span></div>
+    <div class="r-row"><span class="rrl">Lucro bruto</span><span class="rrv" id="r-lb">—</span></div>
+    <div class="r-row alt"><span class="rrl">Impostos</span><span class="rrv" id="r-imp">—</span></div>
+    <div class="r-row sep"></div>
+    <div class="r-row ok" id="r-ll-row"><span class="rrl">LUCRO LÍQUIDO</span><span class="rrv" id="r-ll">—</span></div>
+    <div class="r-row key"><span class="rrl">Retorno Total %</span><span class="rrv" id="r-rt">—</span></div>
+    <div class="r-row key"><span class="rrl">Retorno Anualizado %</span><span class="rrv" id="r-ra">—</span></div>
+    <div class="kpi-bar">
+      <div class="kpi"><div class="kpi-l">Liq. Bruto</div><div class="kpi-v" id="k-lb">—</div></div>
+      <div class="kpi"><div class="kpi-l">Ret. Total</div><div class="kpi-v" id="k-rt">—</div></div>
+      <div class="kpi"><div class="kpi-l">Ret. Anual.</div><div class="kpi-v" id="k-ra">—</div></div>
+    </div>
+  </div>
+  <div class="aviso-box"><strong>⚠ Avisos activos</strong><span id="avisos-lista">—</span></div>
+  <div class="nota-l"><strong>Fontes:</strong> CEIS V.1.1 · CIMT Art.º 7.º,12.º · CIRC Art.º 87.º · Lei 73/2013 Art.º 18.º · CIVA Lista I · CIRS Art.º 43.º,71.º · DL 74-A/2017<br><br>Estimativa indicativa. Confirmar com TOC antes de cada operação.</div>
+</div>
+
+</div><!-- /two-col -->
+</div><!-- /tab-calc -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TAB 2 — STRESS TESTS
+══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-stress" class="tab-panel">
+  <div style="margin-bottom:16px">
+    <div style="background:#fff;border-radius:8px;border:1px solid #E8E4DC;padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:12px;color:#8C6A30;font-weight:700;margin-bottom:6px">BASE DO CENÁRIO (da Calculadora)</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:12px">
+        <span>VVR: <strong id="s-vvr">—</strong></span>
+        <span>Obra c/IVA: <strong id="s-obra">—</strong></span>
+        <span>Meses: <strong id="s-meses">—</strong></span>
+        <span>Lucro Bruto: <strong id="s-lb">—</strong></span>
+        <span>Ret. Total: <strong id="s-rt">—</strong></span>
+        <span>Ret. Anual.: <strong id="s-ra">—</strong></span>
+      </div>
+    </div>
+    <div class="info-box ib-blue" style="border-radius:8px;border:1px solid #B8CCEE">
+      Todos os cenários usam os valores da Calculadora como base. Altere os inputs na aba Calculadora e os stress tests actualizam automaticamente.
+    </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto">
+    <div class="card-hdr"><div class="card-letter">S</div><div class="card-title">Análise de Sensibilidade — Variação Individual e Combinada</div></div>
+    <div style="padding:0;overflow-x:auto">
+      <div class="stress-grid" id="stress-grid">
+        <!-- preenchido por JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TAB 3 — COMPARÁVEIS
+══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-comp" class="tab-panel">
+
+<!-- BARRA DE RESUMO COMPARÁVEIS -->
+<div style="background:#1A1A1A;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <span style="font-size:10px;color:#C8A96E;font-weight:700;letter-spacing:1px;text-transform:uppercase;flex-shrink:0">RESUMO</span>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;flex:1">
+    <div style="text-align:center">
+      <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">VVR Tip. 1</div>
+      <div style="font-size:13px;font-weight:700;color:#C8A96E" id="res-bar-t3">—</div>
+    </div>
+    <div style="width:1px;background:#333;flex-shrink:0"></div>
+    <div style="text-align:center">
+      <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">VVR Tip. 2</div>
+      <div style="font-size:13px;font-weight:700;color:#C8A96E" id="res-bar-t1">—</div>
+    </div>
+    <div style="width:1px;background:#333;flex-shrink:0"></div>
+    <div style="text-align:center">
+      <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">VVR Total</div>
+      <div style="font-size:13px;font-weight:700;color:#C8A96E" id="res-bar-total">—</div>
+    </div>
+    <div style="width:1px;background:#333;flex-shrink:0"></div>
+    <div style="text-align:center">
+      <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">€/m² médio T1</div>
+      <div style="font-size:13px;font-weight:700;color:#888" id="res-bar-m2-t3">—</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">€/m² médio T2</div>
+      <div style="font-size:13px;font-weight:700;color:#888" id="res-bar-m2-t1">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- TIPOLOGIAS LADO A LADO NO TOPO (parâmetros) -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+
+  <!-- Parâmetros Tipologia 1 -->
+  <div class="card">
+    <div class="card-hdr"><div class="card-letter">1</div><input type="text" id="titulo-comp1" value="" placeholder="Tipologia / Descrição (ex: T3 — 1.º Andar)" style="flex:1;border:none;background:transparent;font-size:11px;font-weight:700;color:#8C6A30;letter-spacing:0.5px;text-transform:uppercase;outline:none;font-family:Arial;cursor:text;min-width:0" oninput="syncTitulos()"></div>
+    <div class="row"><div class="rl">Área bruta (m²)</div><div class="rv"><input type="number" id="c3-area" value="54.5" step="0.5" oninput="calcComp()"></div></div>
+    <div class="row alt"><div class="rl">Renda estimada (mês)</div><div class="rv"><input type="number" id="c3-renda" value="0" step="50" oninput="calcComp()"></div></div>
+    <div class="row"><div class="rl">Yield alvo</div><div class="rv"><input type="number" id="c3-yield" value="4" step="0.5" oninput="calcComp()"><span class="unit">%</span></div></div>
+    <div class="row alt"><div class="rl">VVR pelo rendimento</div><div class="rv"><span class="cv" id="c3-vvr-rend">—</span></div></div>
+  </div>
+
+  <!-- Parâmetros Tipologia 2 -->
+  <div class="card">
+    <div class="card-hdr"><div class="card-letter">2</div><input type="text" id="titulo-comp2" value="" placeholder="Tipologia / Descrição (ex: T1 — R/C)" style="flex:1;border:none;background:transparent;font-size:11px;font-weight:700;color:#8C6A30;letter-spacing:0.5px;text-transform:uppercase;outline:none;font-family:Arial;cursor:text;min-width:0" oninput="syncTitulos()"></div>
+    <div class="row"><div class="rl">Área bruta (m²)</div><div class="rv"><input type="number" id="c1-area" value="54.5" step="0.5" oninput="calcComp()"></div></div>
+    <div class="row alt"><div class="rl">Renda estimada (mês)</div><div class="rv"><input type="number" id="c1-renda" value="0" step="50" oninput="calcComp()"></div></div>
+    <div class="row"><div class="rl">Yield alvo</div><div class="rv"><input type="number" id="c1-yield" value="4" step="0.5" oninput="calcComp()"><span class="unit">%</span></div></div>
+    <div class="row alt"><div class="rl">VVR pelo rendimento</div><div class="rv"><span class="cv" id="c1-vvr-rend">—</span></div></div>
+  </div>
+
+</div>
+
+<!-- COMPARÁVEIS — TIPOLOGIA 1 — VERTICAL (um em cima do outro) -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-hdr"><div class="card-letter">1</div><div class="card-title" id="titulo-t3-hdr">TIPOLOGIA 1 — COMPARÁVEIS</div></div>
+  <div id="t3-body"></div>
+  <div class="avg-row" style="display:grid;grid-template-columns:28px 1fr 90px 90px 110px;gap:10px;padding:10px 14px;font-size:11.5px;align-items:center">
+    <div></div><div style="font-weight:700;color:#8C6A30">Média</div>
+    <div style="text-align:right" id="t3-avg-m2">—</div>
+    <div style="text-align:center">—</div>
+    <div style="text-align:right" id="t3-avg-aj">—</div>
+  </div>
+  <div id="t3-avg-vvr" style="display:none">—</div>
+  <div class="comp-result">
+    <div class="lbl">VVR Alvo — <span id="res-titulo1">Tipologia 1</span></div>
+    <div class="val" id="t3-result">—</div>
+  </div>
+</div>
+
+<!-- COMPARÁVEIS — TIPOLOGIA 2 — VERTICAL (um em cima do outro) -->
+<div class="card">
+  <div class="card-hdr"><div class="card-letter">2</div><div class="card-title" id="titulo-t1-hdr">TIPOLOGIA 2 — COMPARÁVEIS</div></div>
+  <div id="t1-body"></div>
+  <div class="avg-row" style="display:grid;grid-template-columns:28px 1fr 90px 90px 110px;gap:10px;padding:10px 14px;font-size:11.5px;align-items:center">
+    <div></div><div style="font-weight:700;color:#8C6A30">Média</div>
+    <div style="text-align:right" id="t1-avg-m2">—</div>
+    <div style="text-align:center">—</div>
+    <div style="text-align:right" id="t1-avg-aj">—</div>
+  </div>
+  <div id="t1-avg-vvr" style="display:none">—</div>
+  <div class="comp-result">
+    <div class="lbl">VVR Alvo — <span id="res-titulo2">Tipologia 2</span></div>
+    <div class="val" id="t1-result">—</div>
+  </div>
+</div>
+
+<!-- RELATÓRIO PARA INVESTIDORES -->
+<div class="card" style="margin-top:20px">
+  <div class="card-hdr">
+    <div class="card-letter" style="background:#1B5E20">R</div>
+    <div class="card-title">RELATÓRIO DE COMPARÁVEIS — PARA INVESTIDORES</div>
+    <button onclick="gerarRelatorio()" style="margin-left:auto;background:#C8A96E;color:#1A1A1A;border:none;border-radius:5px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.5px">↻ ACTUALIZAR</button>
+    <button onclick="imprimirRelatorio()" style="margin-left:6px;background:#1A1A1A;color:#C8A96E;border:1px solid #C8A96E;border-radius:5px;padding:5px 12px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.5px">⬇ IMPRIMIR</button>
+  </div>
+  <div id="relatorio-comp" style="padding:20px 24px;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;color:#2C2C2C">
+    <div style="color:#AAA;font-style:italic;text-align:center;padding:20px">Preencha os comparáveis acima para gerar o relatório</div>
+  </div>
+</div>
+
+</div><!-- /tab-comp -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     TAB 4 — TABELAS FISCAIS
+══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-fiscal" class="tab-panel">
+<div style="background:#F5F4F0;padding:4px 0 12px 0">
+<div class="two-col-fiscal">
+<div>
+
+<!-- IVA OBRA -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IVA — Obras de Reabilitação <span class="lei">CIVA Lista I · Art.º 18.º n.º 1 a) · Circular AT 30008/2016</span></div>
+  <table class="fiscal-table">
+    <tr><th>Situação</th><th>MO</th><th>Materiais</th><th>Observação</th></tr>
+    <tr class="ok-row"><td>Zona ARU — qualquer obra</td><td class="taxa">6%</td><td class="taxa">6%</td><td class="fonte">CIVA Lista I n.º 2.27 — tudo a taxa reduzida</td></tr>
+    <tr class="ok-row"><td>Sem ARU · Sem ampliação · Edifício &gt; 30 anos</td><td class="taxa">6%</td><td class="taxa">23%</td><td class="fonte">Reconstrução/reabilitação sem ampliação</td></tr>
+    <tr class="warn-row"><td>Sem ARU · Com ampliação</td><td class="taxa">23%</td><td class="taxa">23%</td><td class="fonte">Ampliação exclui taxa reduzida na MO</td></tr>
+    <tr class="alert-row"><td>Obra nova / não elegível</td><td class="taxa">23%</td><td class="taxa">23%</td><td class="fonte">Sem excepção — confirmar sempre com TOC</td></tr>
+  </table>
+</div>
+
+<!-- IMT HPP -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IMT — Habitação Própria Permanente <span class="lei">CIMT Art.º 9.º Tabela I</span></div>
+  <table class="fiscal-table">
+    <tr><th>Escalão (€)</th><th>Taxa Marginal</th><th>Parcela a Abater</th></tr>
+    <tr class="ok-row"><td>Até 104.261</td><td class="taxa">0%</td><td>— (isenção total)</td></tr>
+    <tr><td>104.261 – 142.618</td><td class="taxa">2%</td><td>2.085,22 €</td></tr>
+    <tr><td>142.618 – 194.458</td><td class="taxa">5%</td><td>6.363,76 €</td></tr>
+    <tr><td>194.458 – 324.058</td><td class="taxa">7%</td><td>10.252,92 €</td></tr>
+    <tr><td>324.058 – 648.022</td><td class="taxa">8%</td><td>13.493,50 €</td></tr>
+    <tr><td>Acima de 648.022</td><td class="taxa">6% taxa única</td><td>—</td></tr>
+    <tr><td>Acima de 1.128.287</td><td class="taxa">7,5% taxa única</td><td>—</td></tr>
+  </table>
+</div>
+
+<!-- IMT HS -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IMT — Hab. Secundária / Empresa Não Isenta <span class="lei">CIMT Art.º 9.º Tabela II</span></div>
+  <table class="fiscal-table">
+    <tr><th>Escalão (€)</th><th>Taxa Marginal</th><th>Parcela a Abater</th></tr>
+    <tr><td>Até 104.261</td><td class="taxa">1%</td><td>—</td></tr>
+    <tr><td>104.261 – 142.618</td><td class="taxa">2%</td><td>1.042,61 €</td></tr>
+    <tr><td>142.618 – 194.458</td><td class="taxa">5%</td><td>5.321,15 €</td></tr>
+    <tr><td>194.458 – 324.058</td><td class="taxa">7%</td><td>9.210,31 €</td></tr>
+    <tr><td>324.058 – 621.501</td><td class="taxa">8%</td><td>12.450,89 €</td></tr>
+    <tr><td>Acima de 621.501</td><td class="taxa">6% taxa única</td><td>—</td></tr>
+    <tr><td>Acima de 1.128.287</td><td class="taxa">7,5% taxa única</td><td>—</td></tr>
+  </table>
+</div>
+
+<!-- IS -->
+<div class="fiscal-section">
+  <div class="fiscal-title">Imposto de Selo <span class="lei">CEIS — Verbas 1.1 e 17.1</span></div>
+  <table class="fiscal-table">
+    <tr><th>Situação</th><th>Taxa</th><th>Base de Incidência</th></tr>
+    <tr class="ok-row"><td>Aquisição de imóvel (Verba 1.1)</td><td class="taxa">0,8%</td><td>max(preço compra, VPT)</td></tr>
+    <tr><td>Mútuo / Financiamento (Verba 17.1)</td><td class="taxa">0,5%</td><td>Valor do empréstimo</td></tr>
+    <tr><td>Hipoteca / Garantia (Verba 10.3)</td><td class="taxa">0,6%</td><td>Valor da garantia</td></tr>
+  </table>
+</div>
+
+</div><!-- /col 1 -->
+<div>
+
+<!-- IRC -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IRC — Taxas PME 2025 <span class="lei">CIRC Art.º 87.º · OE 2024</span></div>
+  <table class="fiscal-table">
+    <tr><th>Situação</th><th>Taxa</th><th>Observação</th></tr>
+    <tr class="ok-row"><td>PME — Primeiros 50.000 € de lucro</td><td class="taxa">17%</td><td class="fonte">Art.º 87.º n.º 2 · Redução PME OE 2024</td></tr>
+    <tr><td>PME — Excedente a 50.000 €</td><td class="taxa">21%</td><td class="fonte">Art.º 87.º n.º 1</td></tr>
+    <tr><td>Taxa geral (não PME)</td><td class="taxa">21%</td><td class="fonte">Art.º 87.º n.º 1</td></tr>
+    <tr class="warn-row"><td>Derrama estadual (lucro 1,5M€–7,5M€)</td><td class="taxa">+3%</td><td class="fonte">Art.º 87.º-A CIRC</td></tr>
+    <tr class="warn-row"><td>Derrama estadual (lucro 7,5M€–35M€)</td><td class="taxa">+5%</td><td class="fonte">Art.º 87.º-A CIRC</td></tr>
+    <tr class="warn-row"><td>Derrama estadual (lucro &gt; 35M€)</td><td class="taxa">+9%</td><td class="fonte">Art.º 87.º-A CIRC</td></tr>
+    <tr><td>Derrama municipal máxima (ex: Coimbra)</td><td class="taxa">+1,5%</td><td class="fonte">Art.º 18.º Lei 73/2013</td></tr>
+    <tr class="ok-row"><td>Taxa efectiva máxima PME + derrama Coimbra</td><td class="taxa">≈ 22,5%</td><td class="fonte">21% + 1,5%</td></tr>
+  </table>
+</div>
+
+<!-- IRS -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IRS — Mais-valias Imobiliárias <span class="lei">CIRS Art.º 43.º · OE 2024</span></div>
+  <table class="fiscal-table">
+    <tr><th>Situação</th><th>Exclusão</th><th>Taxa</th><th>Observação</th></tr>
+    <tr class="alert-row"><td>Imóvel adquirido após 2022</td><td class="taxa">0%</td><td class="taxa">28%</td><td class="fonte">OE 2024 — exclusão eliminada</td></tr>
+    <tr class="ok-row"><td>Imóvel adquirido antes de 2023</td><td class="taxa">50%</td><td class="taxa">28%</td><td class="fonte">Art.º 43.º n.º 2 — mantém exclusão</td></tr>
+    <tr><td>Opção de englobamento (qualquer)</td><td>—</td><td class="taxa">Taxa marginal</td><td class="fonte">Até 48% — só vantajoso se taxa &lt; 28%</td></tr>
+    <tr class="ok-row"><td>Reinvestimento em HPP</td><td class="taxa">Isenção total</td><td class="taxa">0%</td><td class="fonte">CIRS Art.º 10.º n.º 5 — condições</td></tr>
+    <tr><td>Coef. desvalorização monet. (&gt; 2 anos)</td><td>—</td><td>—</td><td class="fonte">Portaria anual AT — reduz base tributável</td></tr>
+  </table>
+</div>
+
+<!-- IRS Escalões -->
+<div class="fiscal-section">
+  <div class="fiscal-title">IRS — Escalões 2025 <span class="lei">CIRS Art.º 68.º · OE 2024</span></div>
+  <table class="fiscal-table">
+    <tr><th>Rendimento Colectável (€)</th><th>Taxa Marginal</th><th>Taxa Média Máxima</th></tr>
+    <tr class="ok-row"><td>Até 7.703</td><td class="taxa">13,25%</td><td>13,25%</td></tr>
+    <tr><td>7.703 – 11.623</td><td class="taxa">18%</td><td>15,81%</td></tr>
+    <tr><td>11.623 – 16.472</td><td class="taxa">23%</td><td>18,71%</td></tr>
+    <tr><td>16.472 – 21.321</td><td class="taxa">26%</td><td>20,68%</td></tr>
+    <tr><td>21.321 – 27.146</td><td class="taxa">32,75%</td><td>23,57%</td></tr>
+    <tr><td>27.146 – 39.791</td><td class="taxa">37%</td><td>27,92%</td></tr>
+    <tr><td>39.791 – 51.997</td><td class="taxa">43,5%</td><td>31,72%</td></tr>
+    <tr><td>51.997 – 81.199</td><td class="taxa">45%</td><td>37,27%</td></tr>
+    <tr class="alert-row"><td>Acima de 81.199</td><td class="taxa">48%</td><td>—</td></tr>
+  </table>
+</div>
+
+<!-- Empresa Imobiliária -->
+<div class="fiscal-section">
+  <div class="fiscal-title">Empresa Imobiliária — Regime Especial <span class="lei">CIMT Art.º 7.º</span></div>
+  <table class="fiscal-table">
+    <tr><th>Benefício</th><th>Condição</th><th>Prazo / Fonte</th></tr>
+    <tr class="ok-row"><td>Isenção de IMT na aquisição</td><td>Imóvel afecto à revenda</td><td>1 ano · Art.º 7.º CIMT + Lei 56/2023</td></tr>
+    <tr class="warn-row"><td>Caducidade da isenção</td><td>Não vendido em 1 ano <strong>OU</strong> dado uso diferente da revenda (arrendamento, uso próprio, etc.)</td><td>IMT liquidado + juros</td></tr>
+    <tr><td>CAE's elegíveis</td><td>41100, 68100, 68200</td><td>Confirmar registo na AT</td></tr>
+    <tr><td>IRC sobre lucro da venda</td><td>Normal — PME 17%/21%</td><td>CIRC Art.º 87.º</td></tr>
+    <tr class="warn-row"><td>Dividendos ao sócio</td><td>Retenção na fonte 28%</td><td>CIRS Art.º 71.º n.º 1</td></tr>
+  </table>
+</div>
+
+</div><!-- /col 2 -->
+</div><!-- /two-col-fiscal -->
+</div></div><!-- /tab-fiscal -->
+<!-- ══════════════════════════════════════════════════════════════════════
+     TAB 5 — PARCERIAS COM INVESTIDORES
+══════════════════════════════════════════════════════════════════════ -->
+<div id="tab-caep" class="tab-panel">
+
+<style>
+.p-section { margin-bottom: 20px; }
+.p-card { background:#fff; border-radius:10px; border:1px solid #E8E4DC; overflow:hidden; margin-bottom:14px; }
+.p-hdr { background:#1A1A1A; border-bottom:3px solid #C8A96E; padding:12px 18px; display:flex; align-items:center; gap:10px; }
+.p-hdr-title { font-size:12px; font-weight:700; color:#C8A96E; letter-spacing:0.5px; text-transform:uppercase; }
+.p-hdr-sub { font-size:10px; color:#7A7A7A; margin-left:auto; font-style:italic; }
+
+.inv-card { background:#fff; border:1px solid #E8E4DC; border-radius:8px; overflow:hidden; }
+.inv-hdr { padding:10px 14px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #F0EDE8; }
+.inv-num { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px; color:#fff; flex-shrink:0; }
+.inv-nome-input { flex:1; border:none; background:transparent; font-size:13px; font-weight:700; color:#1A1A1A; outline:none; font-family:Arial; }
+.inv-tipo-badge { font-size:9px; font-weight:700; padding:3px 8px; border-radius:4px; flex-shrink:0; }
+.inv-body { padding:14px; }
+
+.inv-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
+.inv-metric { text-align:center; background:#F9F9F7; border-radius:7px; padding:10px 8px; border:1px solid #F0EDE8; }
+.inv-metric-label { font-size:9px; color:#AAA; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:4px; }
+.inv-metric-val { font-size:16px; font-weight:700; }
+.inv-metric-sub { font-size:9px; color:#AAA; margin-top:2px; }
+
+.inv-pct-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.inv-pct-label { font-size:11px; color:#5A5A5A; min-width:160px; }
+.inv-pct-slider { flex:1; }
+.inv-pct-val { font-size:13px; font-weight:700; color:#1A3A6B; min-width:45px; text-align:right; }
+
+.estrutura-visual { display:grid; gap:3px; margin:10px 0; }
+.ev-row { display:flex; align-items:center; gap:8px; height:32px; border-radius:4px; overflow:hidden; }
+.ev-label { font-size:10px; font-weight:700; min-width:120px; padding:0 10px; display:flex; align-items:center; height:100%; }
+.ev-bar { height:100%; display:flex; align-items:center; padding:0 8px; font-size:10px; font-weight:700; transition:width 0.3s; }
+.ev-val { font-size:10px; font-weight:700; padding:0 8px; display:flex; align-items:center; height:100%; min-width:80px; }
+
+.resumo-parceria { background:#1A1A1A; border-radius:10px; padding:18px 20px; }
+.rp-title { font-size:11px; font-weight:700; color:#C8A96E; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+.rp-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; }
+.rp-item { background:#242424; border-radius:7px; padding:12px 14px; }
+.rp-item-label { font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:5px; }
+.rp-item-val { font-size:18px; font-weight:700; }
+.rp-item-sub { font-size:9px; color:#888; margin-top:3px; }
+.rp-item.destaque { background:#1B5E20; border:1px solid #2E7D32; }
+.rp-item.destaque .rp-item-label { color:#9FE1CB; }
+.rp-item.destaque .rp-item-val { color:#fff; font-size:22px; }
+.rp-item.dourado { background:#2A2218; border:1px solid #C8A96E40; }
+.rp-item.dourado .rp-item-label { color:#8C6A30; }
+.rp-item.dourado .rp-item-val { color:#C8A96E; }
+
+.contrato-box { background:#FFFBF0; border:1px solid #E8D5AA; border-left:4px solid #C8A96E; border-radius:6px; padding:12px 16px; font-size:11.5px; color:#5A5A5A; line-height:1.7; }
+.contrato-box strong { color:#8C6A30; display:block; font-size:12px; margin-bottom:4px; }
+.tag { display:inline-block; font-size:9px; font-weight:700; padding:2px 7px; border-radius:3px; margin-right:4px; margin-bottom:2px; }
+.tag-verde { background:#EBF5EC; color:#1B5E20; }
+.tag-azul { background:#EFF4FF; color:#1A3A6B; }
+.tag-amber { background:#FEF8EC; color:#7A5200; }
+
+input[type=range].p-range { width:100%; height:4px; background:#E8E4DC; border-radius:2px; outline:none; border:none; padding:0; -webkit-appearance:none; cursor:pointer; }
+input[type=range].p-range::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#C8A96E; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 1px #C8A96E; }
+input[type=range].p-range::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#C8A96E; cursor:pointer; border:2px solid #fff; }
+
+.add-inv-btn { width:100%; padding:12px; background:transparent; border:2px dashed #E8E4DC; border-radius:8px; font-size:12px; color:#AAA; cursor:pointer; font-family:Arial; transition:all 0.2s; }
+.add-inv-btn:hover { border-color:#C8A96E; color:#8C6A30; background:#FFFBF0; }
+</style>
+
+<!-- BARRA DE REFERÊNCIA (vem da calculadora) -->
+<div style="background:#1A1A1A;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <span style="font-size:10px;color:#C8A96E;font-weight:700;letter-spacing:1px;text-transform:uppercase;flex-shrink:0">NEGÓCIO BASE</span>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:11.5px">
+    <div id="p-aviso-vvr" style="color:#F5C6C6;font-size:10px;font-style:italic;display:none">⚠ Preencha o VVR na aba Calculadora para ver os dados aqui</div>
+    <span style="color:#888">Lucro Bruto: <strong style="color:#C8A96E" id="p-lb-ref">—</strong></span>
+    <span style="color:#888">Lucro Líquido: <strong style="color:#C8A96E" id="p-ll-ref">—</strong></span>
+    <span style="color:#888">Ret. Total: <strong style="color:#C8A96E" id="p-rt-ref">—</strong></span>
+    <span style="color:#888">Cap. Próprios: <strong style="color:#C8A96E" id="p-cap-ref">—</strong></span>
+    <span style="color:#888">Prazo: <strong style="color:#C8A96E" id="p-meses-ref">—</strong></span>
+    <span style="color:#888">Break-even: <strong style="color:#C8A96E" id="p-be-ref">—</strong></span>
+  </div>
+  <span style="font-size:9px;color:#666;font-style:italic">Actualiza automaticamente ao preencher a Calculadora</span>
+  <button onclick="syncParceriasRef()" style="margin-left:8px;background:#C8A96E;color:#1A1A1A;border:none;border-radius:5px;padding:5px 14px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.5px">↻ ACTUALIZAR DADOS</button>
+</div>
+
+<!-- CONFIGURAÇÃO DA ESTRUTURA -->
+<div class="p-card">
+  <div class="p-hdr">
+    <div class="card-letter">1</div>
+    <div class="p-hdr-title">Configuração da Estrutura CAEP</div>
+    <div class="p-hdr-sub">Associação em Participação — Art.º 21.º Código Comercial</div>
+  </div>
+  <div style="padding:16px 18px">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <!-- Lucro a distribuir -->
+      <div>
+        <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Base de distribuição</div>
+        <select id="p-base-dist" onchange="calcParcerias()" style="width:100%;padding:8px 10px;border:1.5px solid #C8A96E;border-radius:6px;background:#FFFEF5;color:#1A3A6B;font-weight:700;font-size:12px;font-family:Arial;outline:none">
+          <option value="ll">Lucro Líquido (após IRC da empresa)</option>
+          <option value="lb">Lucro Bruto (antes de IRC)</option>
+        </select>
+        <div style="font-size:10px;color:#AAA;margin-top:4px;font-style:italic">Recomendado: Lucro Líquido — mais transparente para o investidor</div>
+      </div>
+      <!-- Tipo de estrutura -->
+      <div>
+        <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px">Estrutura jurídica</div>
+        <select id="p-estrutura" onchange="calcParcerias()" style="width:100%;padding:8px 10px;border:1.5px solid #C8A96E;border-radius:6px;background:#FFFEF5;color:#1A3A6B;font-weight:700;font-size:12px;font-family:Arial;outline:none">
+          <option value="ap">Associação em Participação (Art.º 21.º CCom)</option>
+          <option value="lda">Sociedade por Quotas — SPQ específica</option>
+          <option value="informal">Acordo Informal (maior risco jurídico)</option>
+        </select>
+        <div style="font-size:10px;color:#AAA;margin-top:4px;font-style:italic" id="p-estrutura-nota">Sem personalidade jurídica · A Somnium permanece titular</div>
+      </div>
+    </div>
+
+    <!-- Notas jurídicas -->
+    <div class="contrato-box">
+      <strong>⚖ Associação em Participação (recomendada para flips)</strong>
+      <span class="tag tag-verde">Sem registo público</span>
+      <span class="tag tag-azul">Somnium titular do imóvel</span>
+      <span class="tag tag-amber">Confirmação AT recomendada</span>
+      <br>
+      O investidor passivo entra com capital. A Somnium gere o negócio (investidor activo).
+      O lucro é partilhado conforme contrato. O investidor passivo não tem responsabilidade directa
+      perante terceiros.<br><br>
+      <strong style="color:#8B1A1A">⚠ O contrato deve obrigatoriamente prever:</strong>
+      prazo máximo de conclusão do negócio (recomendado: antes dos 11 meses para salvaguardar isenção IMT) ·
+      condições de dissolução e devolução de capital em caso de perda ·
+      penalizações por incumprimento de prazos · forma de apuramento e distribuição do lucro ·
+      reconhecimento notarial recomendado para imóveis.
+      <br><br>
+      A tributação do rendimento do investidor passivo depende da sua natureza
+      (empresa → IRC · particular → IRS cat. E ou B). Confirmar sempre com TOC e advogado.
+    </div>
+  </div>
+</div>
+
+<!-- INVESTIDORES -->
+<div class="p-card">
+  <div class="p-hdr">
+    <div class="card-letter">2</div>
+    <div class="p-hdr-title">Investidores e Distribuição</div>
+    <div class="p-hdr-sub">Máximo 6 investidores · Total deve ser 100%</div>
+  </div>
+  <div style="padding:16px 18px">
+
+    <!-- SOMNIUM — Investidor Activo (sempre presente) -->
+    <div class="inv-card" style="margin-bottom:12px;border-color:#C8A96E40">
+      <div class="inv-hdr" style="background:#1A1A1A">
+        <div class="inv-num" style="background:#C8A96E;color:#1A1A1A">S</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#C8A96E">SOMNIUM PROPERTIES</div>
+          <div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:0.5px">Investidor Activo · Gestor do negócio</div>
+        </div>
+        <div class="inv-tipo-badge" style="background:#C8A96E20;color:#C8A96E;border:1px solid #C8A96E40">ACTIVO</div>
+      </div>
+      <div class="inv-body">
+        <div class="inv-pct-row">
+          <div class="inv-pct-label">Percentagem do lucro</div>
+          <input type="range" class="p-range" id="p-pct-somnium" min="0" max="100" value="40" step="1" oninput="syncSomnium(); calcParcerias()">
+          <div class="inv-pct-val"><span id="p-pct-somnium-val">40</span>%</div>
+        </div>
+        <div class="inv-grid" id="p-somnium-metrics">
+          <div class="inv-metric"><div class="inv-metric-label">Lucro atribuído</div><div class="inv-metric-val" id="p-s-lb" style="color:#C8A96E">—</div></div>
+          <div class="inv-metric"><div class="inv-metric-label">IRC estimado</div><div class="inv-metric-val" id="p-s-irc" style="color:#8B1A1A">—</div></div>
+          <div class="inv-metric"><div class="inv-metric-label" style="font-weight:700">Líquido Somnium</div><div class="inv-metric-val" id="p-s-liq" style="color:#1B5E20">—</div><div class="inv-metric-sub" id="p-s-ret">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Container dos investidores passivos -->
+    <div id="p-investidores-container"></div>
+
+    <!-- Botão adicionar -->
+    <button class="add-inv-btn" onclick="adicionarInvestidor()" id="p-add-btn">+ Adicionar Investidor Passivo</button>
+
+    <!-- Barra de total -->
+    <div style="margin-top:14px;padding:10px 14px;border-radius:7px;border:1px solid #E8E4DC" id="p-total-bar">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:#3A3A3A">Distribuição total</span>
+        <span style="font-size:13px;font-weight:700" id="p-total-pct-display">40%</span>
+      </div>
+      <div style="background:#F0EDE8;border-radius:4px;height:8px;overflow:hidden">
+        <div id="p-total-bar-fill" style="height:100%;background:#C8A96E;border-radius:4px;transition:width 0.3s;width:40%"></div>
+      </div>
+      <div style="font-size:10px;margin-top:4px" id="p-total-aviso"></div>
+    </div>
+  </div>
+</div>
+
+<!-- VISUALIZAÇÃO GRÁFICA -->
+<div class="p-card">
+  <div class="p-hdr"><div class="card-letter">3</div><div class="p-hdr-title">Distribuição Visual do Lucro</div></div>
+  <div style="padding:16px 18px">
+    <div id="p-estrutura-visual" class="estrutura-visual"></div>
+    <div style="margin-top:12px;font-size:10px;color:#AAA;font-style:italic">
+      * Valores calculados sobre o lucro líquido após IRC da empresa. A retenção na fonte de dividendos (28%) e o imposto pessoal de cada investidor são mostrados separadamente abaixo.
+    </div>
+  </div>
+</div>
+
+<!-- RESUMO FINAL -->
+<div class="resumo-parceria" id="p-resumo">
+  <div class="rp-title">Resumo da Parceria</div>
+  <div class="rp-grid" id="p-resumo-grid">
+    <div class="rp-item"><div class="rp-item-label">A calcular...</div><div class="rp-item-val" style="color:#666">—</div></div>
+  </div>
+</div>
+
+<!-- NOTA FISCAL -->
+<div style="margin-top:14px" class="contrato-box">
+  <strong>📋 Fiscalidade do Investidor Passivo</strong>
+  <strong style="color:#1A1A1A;margin-top:8px;display:block">Com empresa (IRC):</strong>
+  O rendimento recebido pelo investidor passivo com empresa é tratado como rendimento comercial
+  ou dividendos, tributado em IRC PME (17%/21% + derrama). Pode haver dispensa de retenção
+  se ambas as partes forem sujeitos passivos de IRC (Art.º 97.º CIRC).
+  <strong style="color:#1A1A1A;margin-top:8px;display:block">Particular (IRS):</strong>
+  Se a participação for tratada como rendimento de capitais (Cat. E): retenção na fonte 28%
+  (Art.º 71.º CIRS). Se for actividade empresarial (Cat. B): 50% excluído, tributa à taxa marginal.
+  Cat. E (capital puro): retenção 28% (Art.º 71.º CIRS) — valor mostrado na simulação.
+  Cat. B (actividade): 50% excluído + taxa marginal — vantajoso se taxa &lt; 28%.
+  <strong style="color:#1A1A1A;margin-top:8px;display:block">⚠ Dupla tributação:</strong>
+  Carga combinada típica: <strong>35–44%</strong> (IRC empresa + imposto investidor).
+  Confirmar sempre com TOC e advogado antes de assinar contrato.
+</div>
+
+</div><!-- /tab-caep -->
+
+
+
+
+</div><!-- /content -->
+
+<script>
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function fe(v){ if(v===null||isNaN(v))return '—'; return Math.round(Math.abs(v)).toLocaleString('pt-PT')+(v<0?' € (negativo)':' €'); }
+function fp(v){ if(v===null||isNaN(v)||!isFinite(v))return '—'; return (v*100).toFixed(1)+'%'; }
+function g(id){ return parseFloat(document.getElementById(id).value)||0; }
+function s(id){ return document.getElementById(id).value; }
+function set(id,val){ var e=document.getElementById(id); if(e)e.textContent=val; }
+function show(id,v){ var e=document.getElementById(id); if(e)e.style.display=v?'':'none'; }
+function col(id,c){ var e=document.getElementById(id); if(e)e.style.color=c; }
+
+function showTab(t, el){
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active');});
+  var panel = document.getElementById('tab-'+t);
+  if(panel) panel.classList.add('active');
+  // Activar tab na barra
+  if(el && el.classList) {
+    el.classList.add('active');
+  } else {
+    // fallback: activar pelo texto
+    document.querySelectorAll('.tab').forEach(function(b){
+      if(b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+t+"'")>=0) b.classList.add('active');
+    });
+  }
+  if(t === 'stress') buildStress();
+  if(t === 'caep') { setTimeout(function(){ if(typeof calc==='function') calc(); setTimeout(syncParceriasRef, 80); }, 20); }
+}
+
+// ── IMT ──────────────────────────────────────────────────────────────────────
+function calcIMT(base,fin){
+  if(fin==='Empresa Imobiliária'||fin==='Empresa Imobiliária (IRC + isenção IMT)') return 0;
+  var hpp=(fin==='Hab. Própria Permanente');
+  if(hpp){
+    if(base<=104261) return 0;
+    if(base<=142618) return base*0.02-2085.22;
+    if(base<=194458) return base*0.05-6363.76;
+    if(base<=324058) return base*0.07-10252.92;
+    if(base<=648022) return base*0.08-13493.50;
+    return base*0.075;
+  } else {
+    if(base<=104261) return base*0.01;
+    if(base<=142618) return base*0.02-1042.61;
+    if(base<=194458) return base*0.05-5321.15;
+    if(base<=324058) return base*0.07-9210.31;
+    if(base<=621501) return base*0.08-12450.89;
+    return base*0.075;
+  }
+}
+
+// ── IVA OBRA ─────────────────────────────────────────────────────────────────
+function calcIVA(obra,pmo,aru,amp){
+  var mo=obra*(pmo/100), mat=obra*(1-pmo/100);
+  if(aru==='Sim'){
+    document.getElementById('bmo').innerHTML='<span class="badge b6">MO 6%</span>';
+    document.getElementById('bmat').innerHTML='<span class="badge b6">Mat. 6%</span>';
+    return obra*0.06;
+  }
+  if(amp==='Não'){
+    document.getElementById('bmo').innerHTML='<span class="badge b6">MO 6%</span>';
+    document.getElementById('bmat').innerHTML='<span class="badge b23">Mat. 23%</span>';
+    return mo*0.06+mat*0.23;
+  }
+  document.getElementById('bmo').innerHTML='<span class="badge b23">MO 23%</span>';
+  document.getElementById('bmat').innerHTML='<span class="badge b23">Mat. 23%</span>';
+  return obra*0.23;
+}
+
+// ── CÁLCULO PRINCIPAL ─────────────────────────────────────────────────────────
+var _lb=0,_ll=0,_cap=0,_tacq=0,_tobr=0,_tman=0,_tfin=0,_tven=0,_meses=9,_vvr=0,_rt=null,_ra=null;
+window._lb=0; window._ll=0; window._cap=0; window._rt=null; window._meses=9; window._ra=null; window._vvr=0;
+
+function calc(){
+  var compra=g('compra'), vpt=g('vpt'), base=Math.max(compra,vpt);
+  var fin=s('finalidade'), escrit=g('escrit'), cpcv_c=g('cpcv_c');
+  var imt=calcIMT(base,fin), is_val=base*0.008;
+  var tacq=compra+imt+is_val+escrit+g('cpcv_c')+g('due_dil');
+
+  set('v-base',fe(base)); set('v-imt',fe(imt)); set('v-is',fe(is_val)); set('v-tacq',fe(tacq));
+  var hints={'Empresa Imobiliária':'Isento 1 ano (Lei 56/2023) — caduca se não vender em 1 ano',
+    'Empresa Imobiliária (IRC + isenção IMT)':'Isento 1 ano (Lei 56/2023, Art.º 7.º CIMT)',
+    'Hab. Própria Permanente':'HPP: isenção até 104.261 € — sobre max(compra,VPT)',
+    'Hab. Secundária':'HS: 1% a partir do 1.º euro — sobre max(compra,VPT)'};
+  document.getElementById('imt-hint').textContent=hints[fin]||'';
+
+  var pf=g('perc_fin')/100, prazo=g('prazo'), tan=g('tan')/100, tipo=s('tipo_taxa');
+  var vfin=compra*pf, isfin=vfin*0.005;
+  var prest=(vfin>0&&tan>0&&prazo>0)?vfin*(tan/12)/(1-Math.pow(1+tan/12,-prazo*12)):0;
+  var penal_pct=tipo==='Fixa'?0.02:0.005, penal=vfin*penal_pct;
+  var tfin=g('comis_banc')+isfin+g('hipot')+penal;
+  set('v-fin',fe(vfin)); set('v-isfin',fe(isfin)); set('v-prest',fe(prest));
+  set('v-penal',fe(penal)); set('v-tfin',fe(tfin));
+  document.getElementById('penal-hint').textContent=tipo==='Fixa'?'Fixa: 2% (DL 74-A/2017)':'Variável: 0,5% (DL 74-A/2017)';
+
+  var obra=g('obra'), pmo=g('pmo'), aru=s('aru'), amp=s('amp'), lic=g('lic');
+  show('row-amp',aru==='Não');
+  var iva=calcIVA(obra,pmo,aru,amp), tobr=obra+iva+lic;
+  set('v-iva',fe(iva)); set('v-tobr',fe(tobr));
+
+  var meses=g('meses'), seg=g('seg'), cond=g('cond'), util=g('util');
+  var taxa_imi=g('taxa_imi')/100;
+  var vpt_val=g('vpt');
+  var imi_periodo=(vpt_val>0&&taxa_imi>0&&meses>0)?vpt_val*taxa_imi*(meses/12):0;
+  set('v-imi',fe(imi_periodo));
+  var tman=(seg+cond+util)*meses+g('ntranch')*g('ctranch')+imi_periodo+g('lig_serv');
+  set('v-tman',fe(tman));
+
+  var vvr=g('vvr'), com_pct=g('com_pct')/100, cpcv_v=g('cpcv_v');
+  var comeur=vvr*com_pct*1.23, tven=comeur+g('cpcv_v')+g('cert_en')+g('staging')+g('outros_v');
+  set('v-comeur',fe(comeur)); set('v-tven',fe(tven));
+
+  var cap=tacq+tobr+tman+tfin, tcusto=tobr+tman+tven+tfin, lb=vvr-tacq-tcusto;
+  set('v-cap',fe(cap));
+  // Break-even: preço mínimo para lucro = 0
+  // vvr_be - tacq - (tobr + tman + (vvr_be*com_pct*1.23 + cpcv_v + cert_en + staging + outros_v) + tfin) = 0
+  // vvr_be × (1 - com_pct*1.23) = tacq + tobr + tman + tfin + cpcv_v + cert_en + staging + outros_v
+  var custos_fixos_v = tacq + tobr + tman + tfin + g('cpcv_v') + g('cert_en') + g('staging') + g('outros_v');
+  var vvr_be = custos_fixos_v / (1 - com_pct * 1.23);
+  set('v-breakeven', fe(vvr_be));
+  set('v-lb',fe(lb));
+
+  var regime=s('regime'), is_emp=(regime!=='Particular (IRS)');
+  show('bloco-irc',is_emp); show('bloco-irs',!is_emp); show('div-section',is_emp);
+
+  var timp=0, lb_pos=Math.max(lb,0);
+  if(is_emp){
+    var dp=g('derrama_pct')/100;
+    var irc1=Math.min(lb_pos,50000)*0.17, irc2=Math.max(lb_pos-50000,0)*0.21, derr=lb_pos*dp;
+    timp=irc1+irc2+derr;
+    set('v-irc1',fe(irc1)); set('v-irc2',fe(irc2)); set('v-derr',fe(derr));
+    document.getElementById('derrama-lbl').textContent='('+g('derrama_pct').toFixed(1)+'%)';
+    var ri={'Empresa (IRC)':'PME: 17% ≤50k€ + 21% acima + derrama municipal (editável). Confirmar estatuto PME.',
+      'Empresa Imobiliária (IRC + isenção IMT)':'IRC PME + isenção IMT 1 ano (Lei 56/2023, Art.º 7.º CIMT). Confirmar CAE e afectação à revenda. Adquirida antes de Out/2023 = 3 anos.'};
+    document.getElementById('regime-info').textContent=ri[regime]||'';
+    var pct_div=g('pct_div')/100, ll=lb-timp, div_b=ll*pct_div, ret=div_b*0.28;
+    set('v-ret-div',fe(ret)); set('v-liq-socio',fe(div_b-ret));
+  } else {
+    var ano=parseInt(document.getElementById('ano_aq').value)||2024;
+    var eng=s('englobamento'), excl=(ano<2023)?0.5:0;
+    // Base IRS Art.51.º CIRS: encargos dedutíveis NÃO incluem custos manutenção correntes
+    // (seguros, condomínio, água, luz, tranches) — só encargos de aquisição e valorização
+    var base_ded_irs = compra + is_val + imt + escrit + cpcv_c + tobr + comeur + cpcv_v;
+    var ganho_bruto = Math.max(vvr - base_ded_irs, 0);
+    var ganho = ganho_bruto * (1 - excl);
+    var taxa_irs=eng.includes('Sim')?g('irs_taxa')/100:0.28;
+    show('row-irs-taxa',eng.includes('Sim'));
+    timp=ganho*taxa_irs;
+    set('v-exclusao',excl===0?'0% (adquirido após 2022 — OE 2024)':'50% (adquirido antes de 2023)');
+    set('v-ganho-trib',fe(ganho));
+    set('v-irsmv',fe(timp));
+    document.getElementById('regime-info').textContent='Art.º 43.º CIRS: '+(excl>0?'exclusão 50% + ':'0% exclusão + ')+(eng.includes('Não')?'taxa autónoma 28%':'taxa marginal englobamento')+' | Base: encargos dedutíveis Art.51.º (sem manutenção corrente)';
+  }
+
+  var ll=lb-timp;
+  set('v-timp',fe(timp)); set('v-ll',fe(ll));
+  col('v-ll',ll>=0?'#1B5E20':'#8B1A1A');
+
+  var rt=cap>0?lb/cap:null, coc_base=tacq+tobr+tman;
+  var coc=coc_base>0?lb/coc_base:null;
+  var ra=(rt!==null&&rt>-1&&meses>0)?Math.pow(1+rt,12/meses)-1:null;
+  var rl=cap>0?ll/cap:null, rla=(rl!==null&&rl>-1&&meses>0)?Math.pow(1+rl,12/meses)-1:null;
+
+  set('v-rt',fp(rt)); set('v-ra',fp(ra)); set('v-coc',fp(coc));
+  set('v-rl',fp(rl)); set('v-rla',fp(rla));
+
+  // Sidebar
+  set('r-compra',fe(compra)); set('r-base',fe(base)); set('r-imt',fe(imt));
+  set('r-obra',fe(tobr)); set('r-meses',meses+' meses');
+  set('r-cap',fe(cap)); set('r-vvr',fe(vvr)); set('r-lb',fe(lb));
+  set('r-imp',fe(timp)); set('r-ll',fe(ll));
+  set('r-rt',fp(rt)); set('r-ra',fp(ra));
+  set('k-lb',lb!==0?fe(lb):'—'); set('k-rt',fp(rt)); set('k-ra',fp(ra));
+  var llRow=document.getElementById('r-ll-row');
+  llRow.className='r-row '+(ll>=0?'ok':'');
+  if(ll<0){llRow.style.background='#FDF0F0';llRow.style.borderColor='#C62828';}
+
+  // Avisos
+  var av=[];
+  // Aviso LTV
+  var ltv_hint=document.getElementById('ltv-hint');
+  if(ltv_hint){
+    if(perc_fin>0.7) ltv_hint.textContent='⚠ Acima de 70% — bancos raramente financiam flips além deste limite';
+    else if(perc_fin>0.5) ltv_hint.textContent='Verificar avaliação do banco (pode diferir do preço de compra)';
+    else ltv_hint.textContent='0% = sem financiamento';
+  }
+  // Aviso IMT caducidade
+  var imt_cad_box=document.getElementById('imt-caducidade-box');
+  var imt_cad_val=document.getElementById('v-imt-caducidade');
+  var meses_disp=document.getElementById('meses-display');
+  if(imt_cad_box){
+    var finalidade_val=s('finalidade');
+    var isEmpresa=finalidade_val.includes('Imobiliária');
+    if(isEmpresa && meses>12){
+      imt_cad_box.style.display='';
+      if(meses_disp) meses_disp.textContent=meses;
+      // IMT HS sobre max(compra,vpt) se caducar
+      var imt_cad=base*0.08-12450.89;
+      if(base<=104261) imt_cad=base*0.01;
+      else if(base<=142618) imt_cad=base*0.02-1042.61;
+      else if(base<=194458) imt_cad=base*0.05-5321.15;
+      else if(base<=324058) imt_cad=base*0.07-9210.31;
+      var juros_cad=imt_cad*0.04*(meses/12);
+      var total_cad=imt_cad+juros_cad;
+      if(imt_cad_val) imt_cad_val.textContent=fe(total_cad)+' (IMT '+fe(imt_cad)+' + juros '+fe(juros_cad)+')';
+      av.push('CRÍTICO: Retenção > 12 meses — isenção IMT caduca! Custo adicional: '+fe(total_cad));
+    } else {
+      imt_cad_box.style.display='none';
+    }
+  }
+  if(vpt>compra) av.push('VPT ('+Math.round(vpt).toLocaleString('pt-PT')+' €) > compra: IS e IMT calculados sobre o VPT.');
+  if(fin.includes('Empresa Imobiliária')) av.push('Isenção IMT caduca em 1 ano (Lei 56/2023) OU se dado uso diferente da revenda (Art.º 11.º n.º 5 CIMT). Confirmar com TOC.');
+  if(is_emp) av.push('Lucro empresa ≠ bolso do sócio: dividendos sujeitos a retenção 28%.');
+  if(!is_emp&&(parseInt(document.getElementById('ano_aq').value)||2024)>=2023) av.push('Pós-2022: exclusão 0% OE 2024.');
+  if(tipo==='Fixa') av.push('Penalização amortização: 2% (taxa fixa).');
+  document.getElementById('avisos-lista').innerHTML=av.length?av.map(function(a){return '• '+a;}).join('<br>'):'✓ Sem avisos activos.';
+
+  // Guardar globais para stress
+  _lb=lb; _ll=ll; _cap=cap; _tacq=tacq; _tobr=tobr; _tman=tman;
+  _tfin=tfin; _tven=tven; _meses=meses; _vvr=vvr; _rt=rt; _ra=ra;
+  // Expor para aba CAEP
+  window._lb=lb; window._ll=ll; window._cap=cap; window._rt=rt; window._meses=meses; window._ra=ra;
+
+  // Actualizar resumo stress se visível
+  set('s-vvr',fe(vvr)); set('s-obra',fe(tobr)); set('s-meses',meses+' meses');
+  set('s-lb',fe(lb)); set('s-rt',fp(rt)); set('s-ra',fp(ra));
+  // Actualizar CAEP automaticamente — sempre, independente da aba activa
+  window._lb=lb; window._ll=ll; window._cap=cap; window._rt=rt; window._meses=meses; window._ra=ra;
+  window._vvr=vvr; window._tacq=tacq; window._tobr=tobr;
+  if(typeof calcParcerias==='function') calcParcerias();
+
+  // Auto-save quando há imóvel seleccionado
+  if(typeof autoSave === 'function') autoSave();
+}
+
+// ── STRESS TESTS ──────────────────────────────────────────────────────────────
+function stressCalc(vvr_s, obra_s, meses_s){
+  var cap=_tacq+obra_s+_tman+_tfin;
+  // ajustar manutenção por meses
+  var man_s=(_meses>0)?_tman/(_meses)*meses_s:_tman;
+  cap=_tacq+obra_s+man_s+_tfin;
+  var com_s=vvr_s*g('com_pct')/100*1.23+g('cpcv_v');
+  var tcusto_s=obra_s+man_s+com_s+_tfin;
+  var lb_s=vvr_s-_tacq-tcusto_s;
+  var lb_pos=Math.max(lb_s,0);
+  var dp=g('derrama_pct')/100;
+  var regime=s('regime'), is_emp=(regime!=='Particular (IRS)');
+  var timp_s=is_emp?(Math.min(lb_pos,50000)*0.17+Math.max(lb_pos-50000,0)*0.21+lb_pos*dp):lb_pos*0.5*0.28;
+  var ll_s=lb_s-timp_s;
+  var rt_s=cap>0?lb_s/cap:0;
+  var ra_s=(rt_s>-1&&meses_s>0)?Math.pow(1+rt_s,12/meses_s)-1:0;
+  return {lb:lb_s,ll:ll_s,rt:rt_s,ra:ra_s,cap:cap};
+}
+
+function buildStress(){
+  var scenarios=[
+    {lbl:'Base (Normal)',vvr:_vvr,obra:_tobr,mes:_meses,cls:'sg-base'},
+    {lbl:'VVR −10%',vvr:_vvr*0.9,obra:_tobr,mes:_meses,cls:'sg-mod'},
+    {lbl:'Obra +10%',vvr:_vvr,obra:_tobr*1.1,mes:_meses,cls:'sg-mod'},
+    {lbl:'Retenção +3m',vvr:_vvr,obra:_tobr,mes:_meses+3,cls:'sg-mod'},
+    {lbl:'VVR −20%',vvr:_vvr*0.8,obra:_tobr,mes:_meses,cls:'sg-sev'},
+    {lbl:'Obra +20%',vvr:_vvr,obra:_tobr*1.2,mes:_meses,cls:'sg-sev'},
+    {lbl:'Retenção +6m',vvr:_vvr,obra:_tobr,mes:_meses+6,cls:'sg-sev'},
+    {lbl:'Mod. Combinado',vvr:_vvr*0.9,obra:_tobr*1.1,mes:_meses+3,cls:'sg-comb'},
+    {lbl:'Sev. Combinado',vvr:_vvr*0.8,obra:_tobr*1.2,mes:_meses+6,cls:'sg-comb'},
+  ];
+
+  var rows=[
+    {k:'VVR',fn:function(sc){return fe(sc.vvr);}},
+    {k:'Obra c/ IVA',fn:function(sc){return fe(sc.obra);}},
+    {k:'Meses',fn:function(sc){return sc.mes+' m';}},
+    {k:'Lucro Bruto',fn:function(sc){var r=stressCalc(sc.vvr,sc.obra,sc.mes);return {val:fe(r.lb),neg:r.lb<0};}},
+    {k:'Lucro Líquido',fn:function(sc){var r=stressCalc(sc.vvr,sc.obra,sc.mes);return {val:fe(r.ll),neg:r.ll<0};}},
+    {k:'Retorno Total %',fn:function(sc){var r=stressCalc(sc.vvr,sc.obra,sc.mes);return {val:fp(r.rt),neg:r.rt<0};}},
+    {k:'Retorno Anualizado %',fn:function(sc){var r=stressCalc(sc.vvr,sc.obra,sc.mes);return {val:fp(r.ra),neg:r.ra<0};}},
+  ];
+
+  var g_div=document.getElementById('stress-grid');
+  g_div.style.gridTemplateColumns='160px repeat('+scenarios.length+',1fr)';
+  var html='<div class="sg-hdr">Indicador</div>';
+  scenarios.forEach(function(sc){
+    var cls=sc.cls==='sg-base'?'sg-hdr':sc.cls==='sg-mod'?'sg-hdr mod':sc.cls==='sg-sev'?'sg-hdr sev':'sg-hdr comb';
+    html+='<div class="'+cls+'">'+sc.lbl+'</div>';
+  });
+
+  rows.forEach(function(row){
+    html+='<div class="sg-lbl">'+row.k+'</div>';
+    scenarios.forEach(function(sc){
+      var v=row.fn(sc);
+      var txt=typeof v==='object'?v.val:v;
+      var neg=typeof v==='object'?v.neg:false;
+      var cls=sc.cls+(neg?' sg-neg':'');
+      html+='<div class="'+cls+'">'+txt+'</div>';
+    });
+  });
+
+  g_div.innerHTML=html;
+}
+
+// ── COMPARÁVEIS ───────────────────────────────────────────────────────────────
+function buildCompRows(bodyId, n){
+  var tb=document.getElementById(bodyId);
+  if(!tb) return;
+  var html='';
+  var varLabels=['Negociação','Área','Localização','Idade','Conservação','Outros'];
+  var varKeys=['neg','area','loc','idade','cons','outros'];
+  for(var i=1;i<=n;i++){
+    var bg=i%2===0?'#FAFAF8':'#fff';
+    html+='<div style="border:1px solid #E8E4DC;border-radius:8px;overflow:hidden;margin-bottom:12px;background:'+bg+'">';
+
+    html+='<div style="background:#1A1A1A;padding:8px 14px;display:flex;align-items:center;gap:10px">';
+    html+='<div style="width:22px;height:22px;background:#C8A96E;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#1A1A1A;flex-shrink:0">#'+i+'</div>';
+    html+='<span style="font-size:11px;font-weight:700;color:#C8A96E;text-transform:uppercase;letter-spacing:0.5px">Comparável '+i+'</span>';
+    html+='<span id="'+bodyId+'-resultado'+i+'" style="margin-left:auto;font-size:13px;font-weight:700;color:#C8A96E">—</span>';
+    html+='</div>';
+
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 14px;border-bottom:1px solid #F0EDE8">';
+    html+='<div><div style="font-size:9px;color:#AAA;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px">Preço de anúncio</div>';
+    html+='<input class="comp-input" id="'+bodyId+'-p'+i+'" type="number" placeholder="Introduzir..." oninput="calcComp()" step="1000" style="width:100%;font-size:13px;padding:8px 10px"></div>';
+    html+='<div><div style="font-size:9px;color:#AAA;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px">Área bruta (m²)</div>';
+    html+='<input class="comp-input" id="'+bodyId+'-a'+i+'" type="number" placeholder="Introduzir..." oninput="calcComp()" step="1" style="width:100%;font-size:13px;padding:8px 10px"></div>';
+    html+='</div>';
+
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:8px 14px;background:#F9F9F7;border-bottom:1px solid #F0EDE8">';
+    html+='<div style="text-align:center"><div style="font-size:9px;color:#AAA;margin-bottom:2px">€/m²</div>';
+    html+='<div id="'+bodyId+'-m'+i+'" style="font-size:13px;font-weight:600;color:#3A3A3A">—</div></div>';
+    html+='<div style="text-align:center"><div style="font-size:9px;color:#AAA;margin-bottom:2px">Ajuste Total</div>';
+    html+='<div id="'+bodyId+'-ajtotal'+i+'" style="font-size:14px;font-weight:700;color:#8C6A30">0%</div></div>';
+    html+='<div style="text-align:center"><div style="font-size:9px;color:#AAA;margin-bottom:2px">€/m² Ajustado</div>';
+    html+='<div id="'+bodyId+'-mj'+i+'" style="font-size:13px;font-weight:700;color:#1B5E20">—</div></div>';
+    html+='</div>';
+
+    html+='<div style="padding:10px 14px;border-bottom:1px solid #F0EDE8;background:rgba(200,169,110,0.04)">';
+    html+='<div style="font-size:9px;color:#8C6A30;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Variáveis de ajuste (%)</div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
+    for(var j=0;j<varKeys.length;j++){
+      var v=varKeys[j], l=varLabels[j];
+      html+='<div style="display:flex;align-items:center;gap:6px">';
+      html+='<span style="font-size:10px;color:#7A7A7A;min-width:70px">'+l+'</span>';
+      html+='<input class="comp-input" id="'+bodyId+'-'+v+i+'" type="number" value="0" oninput="calcComp()" step="0.5" style="width:65px;font-size:12px;text-align:center;padding:4px 6px">';
+      html+='<span style="font-size:10px;color:#AAA">%</span>';
+      html+='</div>';
+    }
+    html+='</div></div>';
+
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 14px">';
+    html+='<div><div style="font-size:9px;color:#AAA;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px">Notas / Observações</div>';
+    html+='<input class="comp-input" id="'+bodyId+'-nota'+i+'" type="text" placeholder="Observações, características relevantes..." style="width:100%;text-align:left;font-size:11.5px;padding:7px 9px"></div>';
+    html+='<div><div style="font-size:9px;color:#AAA;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px">Link do anúncio</div>';
+    html+='<input class="comp-input" id="'+bodyId+'-link'+i+'" type="text" placeholder="https://..." style="width:100%;text-align:left;font-size:11.5px;padding:7px 9px;color:#1A3A6B"></div>';
+    html+='</div>';
+
+    html+='</div>';
+  }
+  tb.innerHTML=html;
+}
+
+function calcComp(){
+  var vars=['neg','area','loc','idade','cons','outros'];
+  ['t3','t1'].forEach(function(t){
+    var prefix=t==='t3'?'c3':'c1';
+    var area=g(prefix+'-area'), renda=g(prefix+'-renda'), yield_=g(prefix+'-yield')/100;
+    var vvr_rend=(renda>0&&yield_>0)?renda*12/yield_:0;
+    set(prefix+'-vvr-rend', vvr_rend>0?fe(vvr_rend):'—');
+
+    var bodyId=t+'-body';
+    var soma_m2=0, soma_aj_m2=0, soma_vvr=0, n_valid=0;
+
+    for(var i=1;i<=5;i++){
+      var ep=document.getElementById(bodyId+'-p'+i);
+      var ea=document.getElementById(bodyId+'-a'+i);
+      if(!ep||!ea) continue;
+      var preco=parseFloat(ep.value)||0;
+      var area_c=parseFloat(ea.value)||0;
+      var aj_total=0;
+      vars.forEach(function(v){
+        var el=document.getElementById(bodyId+'-'+v+i);
+        aj_total+=el?parseFloat(el.value)||0:0;
+      });
+      var el_tot=document.getElementById(bodyId+'-ajtotal'+i);
+      if(el_tot){
+        el_tot.textContent=(aj_total>=0?'+':'')+aj_total.toFixed(1)+'%';
+        el_tot.style.color=aj_total>0?'#1B5E20':aj_total<0?'#8B1A1A':'#8C6A30';
+      }
+      var m2=(preco>0&&area_c>0)?preco/area_c:0;
+      var m2aj=m2*(1+aj_total/100);
+      var area_imovel=g(prefix+'-area');
+      var vvr_c=m2aj*area_imovel;
+      var el_res=document.getElementById(bodyId+'-resultado'+i);
+
+      if(preco>0&&area_c>0){
+        set(bodyId+'-m'+i, m2>0?Math.round(m2).toLocaleString('pt-PT')+' €/m²':'—');
+        set(bodyId+'-mj'+i, m2aj>0?Math.round(m2aj).toLocaleString('pt-PT')+' €/m²':'—');
+        if(el_res) el_res.textContent=vvr_c>0?fe(vvr_c):'—';
+        soma_m2+=m2; soma_aj_m2+=m2aj; soma_vvr+=vvr_c; n_valid++;
+      } else {
+        set(bodyId+'-m'+i,'—'); set(bodyId+'-mj'+i,'—');
+        if(el_res) el_res.textContent='—';
+      }
+    }
+    if(n_valid>0){
+      var avg_m2=soma_m2/n_valid, avg_aj=soma_aj_m2/n_valid, avg_vvr=soma_vvr/n_valid;
+      set(t+'-avg-m2', Math.round(avg_m2).toLocaleString('pt-PT')+' €/m²');
+      set(t+'-avg-aj', Math.round(avg_aj).toLocaleString('pt-PT')+' €/m²');
+      set(t+'-avg-vvr', fe(avg_vvr));
+      set(t+'-result', fe(avg_vvr));
+    } else {
+      set(t+'-avg-m2','—'); set(t+'-avg-aj','—'); set(t+'-avg-vvr','—'); set(t+'-result','—');
+    }
+  });
+
+  // Actualizar barra de resumo
+  var rt3=document.getElementById('t3-result');
+  var rt1=document.getElementById('t1-result');
+  set('res-bar-t3', rt3?rt3.textContent:'—');
+  set('res-bar-t1', rt1?rt1.textContent:'—');
+  set('res-bar-m2-t3', document.getElementById('t3-avg-aj')?document.getElementById('t3-avg-aj').textContent:'—');
+  set('res-bar-m2-t1', document.getElementById('t1-avg-aj')?document.getElementById('t1-avg-aj').textContent:'—');
+
+  // Total
+  var v3=document.getElementById('t3-result'), v1=document.getElementById('t1-result');
+  var n3=v3?parseInt((v3.textContent||'').replace(/\D/g,'')):NaN;
+  var n1=v1?parseInt((v1.textContent||'').replace(/\D/g,'')):NaN;
+  set('res-bar-total', (!isNaN(n3)&&!isNaN(n1))? Math.round(n3+n1).toLocaleString('pt-PT')+' €':'—');
+
+  // Gerar relatório
+  gerarRelatorio();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+
+// ── PARCERIAS ─────────────────────────────────────────────────────────────
+var p_investidores = [];
+var p_contador = 0;
+var cores_inv = ['#1E4D8C','#2E7D32','#6B1A1A','#4A1B6B','#1B5E5E','#6B4A00'];
+var cores_light = ['#EFF4FF','#EBF5EC','#FDF0F0','#F3EDFF','#E0F4F4','#FEF8EC'];
+
+function adicionarInvestidor() {
+  if(p_investidores.length >= 5) {
+    alert('Máximo de 5 investidores passivos atingido.');
+    return;
+  }
+  p_contador++;
+  var id = 'inv_'+p_contador;
+  var idx = p_investidores.length;
+  var cor = cores_inv[idx % cores_inv.length];
+  var corL = cores_light[idx % cores_light.length];
+  var pct_restante = Math.max(0, 100 - parseInt(document.getElementById('p-pct-somnium').value) - p_investidores.reduce(function(s,i){return s+parseInt(document.getElementById('p-pct-'+i.id)?.value||0)},0));
+  var pct_sugerida = Math.min(pct_restante, Math.floor(pct_restante / (5 - p_investidores.length + 1)));
+
+  p_investidores.push({id: id, cor: cor, corL: corL, num: p_contador});
+
+  var container = document.getElementById('p-investidores-container');
+  var div = document.createElement('div');
+  div.id = 'card_'+id;
+  div.className = 'inv-card';
+  div.style.marginBottom = '12px';
+  div.style.borderColor = cor+'40';
+
+  div.innerHTML = `
+    <div class="inv-hdr" style="background:${cor}10;border-bottom:1px solid ${cor}30">
+      <div class="inv-num" style="background:${cor}">${p_contador}</div>
+      <input class="inv-nome-input" id="nome_${id}" placeholder="Nome do investidor..." oninput="calcParcerias()" style="color:#1A1A1A">
+      <select id="tipo_${id}" onchange="calcParcerias()" style="border:1px solid #E8E4DC;border-radius:4px;padding:4px 8px;font-size:10px;font-family:Arial;outline:none;background:#fff;color:#3A3A3A">
+        <option value="empresa">Com empresa (IRC)</option>
+        <option value="particular">Particular (IRS)</option>
+      </select>
+      <div class="inv-tipo-badge" style="background:${cor}20;color:${cor};border:1px solid ${cor}40">PASSIVO</div>
+      <button onclick="removerInvestidor('${id}')" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:16px;padding:0 4px;line-height:1" title="Remover">×</button>
+    </div>
+    <div class="inv-body">
+      <div class="inv-pct-row">
+        <div class="inv-pct-label">Percentagem do lucro</div>
+        <input type="range" class="p-range" id="p-pct-${id}" min="0" max="100" value="${pct_sugerida}" step="1" oninput="calcParcerias()">
+        <div class="inv-pct-val"><span id="p-pct-${id}-val">${pct_sugerida}</span>%</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:0.3px;margin-bottom:4px">Capital aportado por este investidor</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input class="comp-input" id="cap_${id}" type="number" placeholder="0 €" oninput="calcParcerias()" step="5000" style="width:160px;font-size:13px;padding:7px 10px;font-family:Arial;border:1.5px solid #C8A96E;border-radius:5px;background:#FFFEF5;color:#1A3A6B;font-weight:700;text-align:right;outline:none">
+          <span style="font-size:10px;color:#AAA;font-style:italic">Introduzir para calcular ROI e retorno anualizado</span>
+        </div>
+      </div>
+      <div class="inv-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <div class="inv-metric" style="border-color:${cor}20">
+          <div class="inv-metric-label">Lucro atribuído</div>
+          <div class="inv-metric-val" id="p-${id}-lb" style="color:${cor}">—</div>
+        </div>
+        <div class="inv-metric" style="border-color:${cor}20">
+          <div class="inv-metric-label">Imposto estimado</div>
+          <div class="inv-metric-val" id="p-${id}-imp" style="color:#8B1A1A">—</div>
+          <div class="inv-metric-sub" id="p-${id}-imp-tipo">—</div>
+        </div>
+        <div class="inv-metric" style="border-color:${cor}20;background:${corL}">
+          <div class="inv-metric-label" style="font-weight:700">Líquido recebido</div>
+          <div class="inv-metric-val" id="p-${id}-liq" style="color:#1B5E20">—</div>
+        </div>
+        <div class="inv-metric" style="border-color:${cor}20;background:${corL}">
+          <div class="inv-metric-label" style="font-weight:700">ROI / Ret. Anual.</div>
+          <div class="inv-metric-val" id="p-${id}-roi" style="color:#1B5E20;font-size:14px">—</div>
+          <div class="inv-metric-sub" id="p-${id}-ret">—</div>
+        </div>
+      </div>
+    </div>`;
+
+  container.appendChild(div);
+  calcParcerias();
+  if(p_investidores.length >= 5) document.getElementById('p-add-btn').style.display='none';
+}
+
+function removerInvestidor(id) {
+  p_investidores = p_investidores.filter(function(i){return i.id !== id;});
+  var card = document.getElementById('card_'+id);
+  if(card) card.remove();
+  document.getElementById('p-add-btn').style.display='';
+  calcParcerias();
+}
+
+function syncSomnium() {
+  var v = document.getElementById('p-pct-somnium').value;
+  document.getElementById('p-pct-somnium-val').textContent = v;
+}
+
+function calcParcerias() {
+  var CP = function(id){ return document.getElementById(id); };
+  var base = CP('p-base-dist') ? CP('p-base-dist').value : 'll';
+
+  // Buscar valores da calculadora
+  // Ler valores da calculadora principal
+  var lb_raw = (window._lb !== undefined) ? window._lb : 0;
+  var ll_raw = (window._ll !== undefined) ? window._ll : 0;
+  var cap_raw = (window._cap !== undefined) ? window._cap : 0;
+  var rt_raw = (window._rt !== undefined) ? window._rt : null;
+  var vvr_raw = (window._vvr !== undefined) ? window._vvr : 0;
+
+  // Mostrar/esconder aviso VVR=0
+  var aviso_vvr = document.getElementById('p-aviso-vvr');
+  if(aviso_vvr) aviso_vvr.style.display = (vvr_raw === 0) ? '' : 'none';
+
+  var lucro_base = base === 'll' ? ll_raw : lb_raw;
+  var tem_dados = (vvr_raw > 0);
+
+  // Actualizar barra de referência
+  function fe2(v){ if(!v&&v!==0) return '—'; return Math.round(Math.abs(v)).toLocaleString('pt-PT')+(v<0?' € (neg)':' €'); }
+  function fp2(v){ if(v===null||v===undefined||isNaN(v)||!isFinite(v)) return '—'; return (v*100).toFixed(1)+'%'; }
+  var el; 
+  el=CP('p-lb-ref'); if(el) el.textContent=tem_dados?fe2(lb_raw):'Preencher VVR →';
+  el=CP('p-ll-ref'); if(el) el.textContent=tem_dados?fe2(ll_raw):'—';
+  el=CP('p-rt-ref'); if(el) el.textContent=(tem_dados&&rt_raw!==null)?fp2(rt_raw):'—';
+  el=CP('p-cap-ref'); if(el) el.textContent=fe2(cap_raw);
+  el=CP('p-meses-ref'); if(el) el.textContent=(window._meses||9)+' meses';
+  el=CP('p-be-ref'); if(el){ var be=document.getElementById('v-breakeven'); el.textContent=be&&be.textContent&&be.textContent!=='—'?be.textContent:'—'; }
+
+  // Somnium
+  var pct_s = parseInt((CP('p-pct-somnium')||{value:40}).value) / 100;
+  CP('p-pct-somnium-val').textContent = Math.round(pct_s*100);
+  var lb_s = tem_dados ? lucro_base * pct_s : 0;
+  var lb_s_pos = Math.max(lb_s, 0);
+  var irc_s = tem_dados ? (Math.min(lb_s_pos,50000)*0.17 + Math.max(lb_s_pos-50000,0)*0.21 + lb_s_pos*0.015) : 0;
+  var liq_s = tem_dados ? lb_s - irc_s : 0;
+  var ret_s = (tem_dados && cap_raw > 0) ? liq_s/cap_raw : null;
+  el=CP('p-s-lb'); if(el) el.textContent=tem_dados?fe2(lb_s):'—';
+  el=CP('p-s-irc'); if(el) el.textContent=tem_dados?fe2(irc_s):'—';
+  el=CP('p-s-liq'); if(el){ el.textContent=tem_dados?fe2(liq_s):'—'; el.style.color=tem_dados?(liq_s>=0?'#1B5E20':'#8B1A1A'):'#AAA'; }
+  el=CP('p-s-ret'); if(el) el.textContent=tem_dados?('Ret. sobre cap. total: '+fp2(ret_s)):'Preencher VVR na Calculadora';
+
+  // Calcular total % e investidores
+  var total_pct = Math.round(pct_s*100);
+  var resumo_items = [{nome:'Somnium Properties', lb:lb_s, irc:irc_s, liq:liq_s, pct:Math.round(pct_s*100), cor:'#C8A96E', tipo:'activo'}];
+  var visual_items = [{nome:'Somnium Properties', pct:Math.round(pct_s*100), cor:'#C8A96E', liq:liq_s}];
+
+  p_investidores.forEach(function(inv){
+    var pct_el = CP('p-pct-'+inv.id);
+    if(!pct_el) return;
+    var pct_i = parseInt(pct_el.value) / 100;
+    var pct_display = Math.round(pct_i*100);
+    var vv = CP('p-pct-'+inv.id+'-val'); if(vv) vv.textContent = pct_display;
+    total_pct += pct_display;
+
+    var lb_i = tem_dados ? lucro_base * pct_i : 0;
+    var lb_i_pos = Math.max(lb_i, 0);
+    var tipo_el = CP('tipo_'+inv.id);
+    var tipo = tipo_el ? tipo_el.value : 'empresa';
+    var imp_i, imp_tipo, liq_i;
+
+    if(tipo === 'empresa') {
+      imp_i = Math.min(lb_i_pos,50000)*0.17 + Math.max(lb_i_pos-50000,0)*0.21 + lb_i_pos*0.015;
+      imp_tipo = 'IRC PME + derrama';
+    } else {
+      // Particular — rendimento de capitais cat. E: retenção 28%
+      imp_i = lb_i_pos * 0.28;
+      imp_tipo = 'Retenção 28% (Cat. E)';
+    }
+    liq_i = lb_i - imp_i;
+
+    el=CP('p-'+inv.id+'-lb'); if(el){ el.textContent=fe2(lb_i); el.style.color=inv.cor; }
+    el=CP('p-'+inv.id+'-imp'); if(el) el.textContent=fe2(imp_i);
+    el=CP('p-'+inv.id+'-imp-tipo'); if(el) el.textContent=imp_tipo;
+    el=CP('p-'+inv.id+'-liq'); if(el){ el.textContent=fe2(liq_i); el.style.color=liq_i>=0?'#1B5E20':'#8B1A1A'; }
+    var nome_el=CP('nome_'+inv.id);
+    var nome_i = nome_el&&nome_el.value ? nome_el.value : 'Investidor '+inv.num;
+    el=CP('p-'+inv.id+'-ret'); if(el) el.textContent=tipo==='empresa'?'Tributação IRC PME':'Retenção 28% na fonte';
+
+    // ROI do investidor
+    var cap_inv_el = document.getElementById('cap_'+inv.id);
+    var cap_inv = cap_inv_el ? parseFloat(cap_inv_el.value)||0 : 0;
+    var roi_inv = cap_inv > 0 ? liq_i/cap_inv : null;
+    var meses_val = window._meses || 9;
+    var roi_anual = (roi_inv !== null && roi_inv > -1 && meses_val > 0) ? Math.pow(1+roi_inv, 12/meses_val)-1 : null;
+    var el_roi = document.getElementById('p-'+inv.id+'-roi');
+    if(el_roi) el_roi.textContent = roi_inv !== null ? (roi_inv*100).toFixed(1)+'%' : '—';
+    var el_ret2 = document.getElementById('p-'+inv.id+'-ret');
+    if(el_ret2) el_ret2.textContent = roi_anual !== null ? 'Anual.: '+(roi_anual*100).toFixed(1)+'%' : (tipo==='empresa'?'Tributação IRC PME':'Retenção 28% na fonte');
+    // Carga fiscal total (IRC empresa proporcional + imposto pessoal)
+    var irc_empresa_prop = lb_i * (window._ll && window._lb && (window._lb-window._ll) ? (window._lb-window._ll)/Math.max(window._lb,1) : 0.20);
+    var carga_total = imp_i + irc_empresa_prop;
+    resumo_items.push({nome:nome_i, lb:lb_i, irc:imp_i, liq:liq_i, pct:pct_display, cor:inv.cor, tipo:tipo, cap_inv:cap_inv, roi:roi_inv, roi_anual:roi_anual, carga:carga_total});
+    visual_items.push({nome:nome_i, pct:pct_display, cor:inv.cor, liq:liq_i});
+  });
+
+  // Barra de total
+  var bar_fill = CP('p-total-bar-fill');
+  var bar_pct_disp = CP('p-total-pct-display');
+  var bar_aviso = CP('p-total-aviso');
+  if(bar_fill) bar_fill.style.width = Math.min(total_pct,100)+'%';
+  if(bar_fill) bar_fill.style.background = total_pct===100?'#2E7D32':total_pct>100?'#C62828':'#C8A96E';
+  if(bar_pct_disp) { bar_pct_disp.textContent = total_pct+'%'; bar_pct_disp.style.color = total_pct===100?'#1B5E20':total_pct>100?'#8B1A1A':'#8C6A30'; }
+  if(bar_aviso) {
+    if(total_pct===100) bar_aviso.innerHTML='<span style="color:#1B5E20;font-weight:700">✓ Distribuição equilibrada — soma exactamente 100%</span>';
+    else if(total_pct>100) bar_aviso.innerHTML='<span style="color:#8B1A1A;font-weight:700">⚠ Total excede 100% em '+(total_pct-100)+'% — ajustar percentagens</span>';
+    else bar_aviso.innerHTML='<span style="color:#8C6A30">'+(100-total_pct)+'% ainda por distribuir — alocar antes de fechar o contrato</span>';
+  }
+
+  // Visualização gráfica
+  var vis = CP('p-estrutura-visual');
+  if(vis && lucro_base !== 0) {
+    var html = '';
+    var total_liq = resumo_items.reduce(function(s,i){return s+Math.max(i.liq,0)},0);
+    var lucro_abs = Math.abs(lucro_base);
+    resumo_items.forEach(function(item){
+      var w = lucro_abs > 0 ? Math.max(Math.round(Math.abs(item.lb)/lucro_abs*100),2) : 2;
+      html += '<div class="ev-row">';
+      html += '<div class="ev-label" style="background:'+item.cor+'15;color:'+item.cor+';font-size:10px;border-radius:4px;min-width:130px">'+item.nome.substring(0,16)+(item.nome.length>16?'…':'')+'</div>';
+      html += '<div style="flex:1;background:#F5F2EC;border-radius:4px;height:28px;overflow:hidden;position:relative">';
+      html += '<div style="position:absolute;left:0;top:0;height:100%;width:'+w+'%;background:'+item.cor+';display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden">'+item.pct+'%</div>';
+      html += '</div>';
+      html += '<div class="ev-val" style="color:'+item.cor+';min-width:90px;text-align:right">'+fe2(item.lb)+'</div>';
+      html += '<div style="min-width:90px;text-align:right;font-size:10px;font-weight:700;color:#1B5E20;padding:0 8px">'+fe2(item.liq)+'</div>';
+      html += '</div>';
+    });
+    html += '<div style="display:flex;justify-content:flex-end;gap:16px;margin-top:6px;font-size:9px;color:#AAA;padding:0 4px">';
+    html += '<span style="min-width:90px;text-align:right">Lucro atribuído</span>';
+    html += '<span style="min-width:90px;text-align:right">Líquido (após impostos)</span></div>';
+    vis.innerHTML = html;
+  } else if(vis) {
+    vis.innerHTML = '<div style="color:#AAA;text-align:center;padding:20px;font-style:italic">Preencha os dados na Calculadora e adicione investidores para ver a distribuição</div>';
+  }
+
+  // Resumo final
+  var rg = CP('p-resumo-grid');
+  if(rg && lucro_base !== 0) {
+    var html2 = '';
+    resumo_items.forEach(function(item){
+      var is_dest = item.tipo==='activo';
+      var roi_str = item.roi != null ? ' · ROI '+(item.roi*100).toFixed(1)+'%' : '';
+      var ra_str = item.roi_anual != null ? ' · Anual. '+(item.roi_anual*100).toFixed(1)+'%' : '';
+      html2 += '<div class="rp-item'+(is_dest?' dourado':'')+'">'+
+        '<div class="rp-item-label">'+item.nome.substring(0,20)+(item.nome.length>20?'…':'')+'</div>'+
+        '<div class="rp-item-val" style="color:'+(is_dest?'#C8A96E':'#fff')+'">'+fe2(item.liq)+'</div>'+
+        '<div class="rp-item-sub">'+item.pct+'%'+roi_str+ra_str+'</div></div>';
+    });
+    var total_liq2 = resumo_items.reduce(function(s,i){return s+i.liq},0);
+    html2 += '<div class="rp-item destaque">'+
+      '<div class="rp-item-label">TOTAL DISTRIBUÍDO</div>'+
+      '<div class="rp-item-val">'+fe2(total_liq2)+'</div>'+
+      '<div class="rp-item-sub">Líquido combinado</div></div>';
+    rg.innerHTML = html2;
+  }
+
+  // Estrutura legal
+  var est = CP('p-estrutura');
+  var nota = CP('p-estrutura-nota');
+  if(est && nota) {
+    var notas_est = {
+      'ap':'Sem registo público · A Somnium permanece titular do imóvel · Contrato privado entre as partes',
+      'lda':'Exige constituição de nova sociedade · Mais custos mas maior protecção jurídica · Recomendado para múltiplos negócios',
+      'informal':'⚠ Risco jurídico elevado · Sem protecção formal · Não recomendado para valores > 20.000€'
+    };
+    nota.textContent = notas_est[est.value] || '';
+    nota.style.color = est.value==='informal' ? '#8B1A1A' : '#AAA';
+  }
+}
+
+// Sincronizar com os valores da calculadora principal
+function syncParceriasRef() {
+  // calc() já chama calcParcerias() automaticamente no final
+  // Este botão apenas força um re-cálculo explícito
+  if(typeof calc === 'function') {
+    calc();
+  } else {
+    calcParcerias();
+  }
+}
+
+// showTab já inclui lógica de parcerias
+
+buildCompRows('t3-body',5);
+buildCompRows('t1-body',5);
+calc();
+
+function gerarRelatorio(){
+  var div=document.getElementById('relatorio-comp');
+  if(!div) return;
+  var date=new Date().toLocaleDateString('pt-PT');
+  var tip1=document.getElementById('titulo-comp1');
+  var tip2=document.getElementById('titulo-comp2');
+  var nome1=tip1&&tip1.value?tip1.value:'Tipologia 1';
+  var nome2=tip2&&tip2.value?tip2.value:'Tipologia 2';
+  var vars=['neg','area','loc','idade','cons','outros'];
+  var varNames=['Negociação','Área','Localização','Idade','Conservação','Outros'];
+
+  function blocoTipologia(t, nome, prefix){
+    var bodyId=t+'-body';
+    var area=g(prefix+'-area');
+    var linhas='';
+    var n_val=0, soma_vvr=0, soma_m2=0, soma_m2aj=0;
+    for(var i=1;i<=5;i++){
+      var ep=document.getElementById(bodyId+'-p'+i);
+      var ea=document.getElementById(bodyId+'-a'+i);
+      if(!ep||!ea) continue;
+      var preco=parseFloat(ep.value)||0;
+      var area_c=parseFloat(ea.value)||0;
+      if(preco===0&&area_c===0) continue;
+      var aj_total=0;
+      var ajustes_desc=[];
+      vars.forEach(function(v,idx){
+        var el=document.getElementById(bodyId+'-'+v+i);
+        var val=el?parseFloat(el.value)||0:0;
+        if(val!==0) ajustes_desc.push(varNames[idx]+': '+(val>0?'+':'')+val+'%');
+        aj_total+=val;
+      });
+      var m2=preco>0&&area_c>0?preco/area_c:0;
+      var m2aj=m2*(1+aj_total/100);
+      var vvr_c=m2aj*area;
+      var nota_el=document.getElementById(bodyId+'-nota'+i);
+      var link_el=document.getElementById(bodyId+'-link'+i);
+      var nota=nota_el&&nota_el.value?nota_el.value:'—';
+      var link=link_el&&link_el.value?link_el.value:'';
+      n_val++; soma_vvr+=vvr_c; soma_m2+=m2; soma_m2aj+=m2aj;
+      linhas+='<tr style="border-bottom:1px solid #F0EDE8">';
+      linhas+='<td style="padding:8px 10px;font-weight:700;color:#8C6A30;text-align:center">#'+i+'</td>';
+      linhas+='<td style="padding:8px 10px">'+Math.round(preco).toLocaleString('pt-PT')+' €</td>';
+      linhas+='<td style="padding:8px 10px;text-align:center">'+area_c+' m²</td>';
+      linhas+='<td style="padding:8px 10px;text-align:right">'+Math.round(m2).toLocaleString('pt-PT')+' €/m²</td>';
+      linhas+='<td style="padding:8px 10px;text-align:center;color:'+(aj_total>=0?'#1B5E20':'#8B1A1A')+';font-weight:700">'+(aj_total>=0?'+':'')+aj_total.toFixed(1)+'%</td>';
+      linhas+='<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1B5E20">'+Math.round(m2aj).toLocaleString('pt-PT')+' €/m²</td>';
+      linhas+='<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1B5E20;font-size:13px">'+Math.round(vvr_c).toLocaleString('pt-PT')+' €</td>';
+      linhas+='<td style="padding:8px 10px;font-size:10.5px;color:#666">'+nota+(link?'<br><a href="'+link+'" target="_blank" style="color:#1A3A6B;font-size:10px">↗ Ver anúncio</a>':'')+'</td>';
+      linhas+='</tr>';
+    }
+    if(n_val===0) return '<p style="color:#AAA;font-style:italic;padding:8px 0">Sem comparáveis preenchidos.</p>';
+    var avg_m2=soma_m2/n_val, avg_m2aj=soma_m2aj/n_val, avg_vvr=soma_vvr/n_val;
+    var tbl='<div style="margin-bottom:6px">';
+    tbl+='<div style="background:#1A1A1A;color:#C8A96E;font-weight:700;font-size:11px;padding:8px 12px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between">';
+    tbl+='<span>'+nome+'</span><span>Área imóvel: '+area+' m²</span></div>';
+    tbl+='<table style="width:100%;border-collapse:collapse;font-size:11.5px">';
+    tbl+='<thead><tr style="background:#EDE8DF">';
+    ['#','Preço Anúncio','Área m²','€/m²','Ajuste Total','€/m² Aj.','VVR Estimado','Notas'].forEach(function(h){
+      tbl+='<th style="padding:6px 10px;color:#8C6A30;font-size:10px;text-align:left;border-bottom:1px solid #E8D5AA">'+h+'</th>';
+    });
+    tbl+='</tr></thead><tbody>'+linhas+'</tbody>';
+    tbl+='<tfoot><tr style="background:#F5EDD8;border-top:2px solid #C8A96E">';
+    tbl+='<td style="padding:8px 10px;font-weight:700;color:#8C6A30" colspan="3">MÉDIA</td>';
+    tbl+='<td style="padding:8px 10px;text-align:right;font-weight:700;color:#8C6A30">'+Math.round(avg_m2).toLocaleString('pt-PT')+' €/m²</td>';
+    tbl+='<td></td>';
+    tbl+='<td style="padding:8px 10px;text-align:right;font-weight:700;color:#8C6A30">'+Math.round(avg_m2aj).toLocaleString('pt-PT')+' €/m²</td>';
+    tbl+='<td style="padding:8px 10px;text-align:right;font-weight:700;color:#1B5E20;font-size:13px">'+Math.round(avg_vvr).toLocaleString('pt-PT')+' €</td>';
+    tbl+='<td></td></tr></tfoot></table>';
+    tbl+='<div style="background:#EBF5EC;border:2px solid #2E7D32;padding:10px 14px;border-radius:0 0 6px 6px;display:flex;justify-content:space-between;align-items:center">';
+    tbl+='<span style="font-weight:700;color:#1B5E20;font-size:12px">VVR ALVO — '+nome.toUpperCase()+'</span>';
+    tbl+='<span style="font-weight:700;color:#1B5E20;font-size:18px">'+Math.round(avg_vvr).toLocaleString('pt-PT')+' €</span></div>';
+    tbl+='</div>';
+    return tbl;
+  }
+
+  var vvr_t3_el=document.getElementById('t3-result');
+  var vvr_t1_el=document.getElementById('t1-result');
+  var vvr_t3=vvr_t3_el?parseInt((vvr_t3_el.textContent||'').replace(/\D/g,'')):0;
+  var vvr_t1=vvr_t1_el?parseInt((vvr_t1_el.textContent||'').replace(/\D/g,'')):0;
+  var total=vvr_t3+vvr_t1;
+
+  var html='';
+  // Cabeçalho do relatório
+  html+='<div style="border-bottom:3px solid #C8A96E;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end">';
+  html+='<div><div style="font-size:18px;font-weight:700;color:#1A1A1A;letter-spacing:1px">SOMNIUM PROPERTIES</div>';
+  html+='<div style="font-size:11px;color:#8C6A30;font-weight:700;text-transform:uppercase;letter-spacing:1px">Estudo de Mercado — Método Comparativo</div></div>';
+  html+='<div style="text-align:right"><div style="font-size:10px;color:#AAA">Data: '+date+'</div>';
+  html+='<div style="font-size:10px;color:#AAA">Elaborado por: Somnium Properties</div></div></div>';
+
+  // Blocos tipologias
+  html+=blocoTipologia('t3', nome1, 'c3');
+  html+='<div style="height:16px"></div>';
+  html+=blocoTipologia('t1', nome2, 'c1');
+
+  // Resumo final
+  if(vvr_t3>0||vvr_t1>0){
+    html+='<div style="background:#1A1A1A;border-radius:8px;padding:16px 20px;margin-top:16px">';
+    html+='<div style="font-size:11px;color:#C8A96E;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">VALOR DE VENDA RECOMENDADO</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">';
+    html+='<div style="background:#242424;border-radius:6px;padding:12px;text-align:center"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px">'+nome1+'</div><div style="font-size:18px;font-weight:700;color:#C8A96E">'+Math.round(vvr_t3).toLocaleString('pt-PT')+' €</div></div>';
+    html+='<div style="background:#242424;border-radius:6px;padding:12px;text-align:center"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:4px">'+nome2+'</div><div style="font-size:18px;font-weight:700;color:#C8A96E">'+Math.round(vvr_t1).toLocaleString('pt-PT')+' €</div></div>';
+    html+='<div style="background:#1B5E20;border-radius:6px;padding:12px;text-align:center;border:2px solid #2E7D32"><div style="font-size:9px;color:#9FE1CB;text-transform:uppercase;margin-bottom:4px">VVR TOTAL COMBINADO</div><div style="font-size:22px;font-weight:700;color:#fff">'+Math.round(total).toLocaleString('pt-PT')+' €</div></div>';
+    html+='</div>';
+    html+='<div style="margin-top:12px;font-size:10px;color:#555;font-style:italic">Este estudo foi elaborado com base no método comparativo de mercado. Os valores apresentados são estimativas baseadas em imóveis comparáveis disponíveis à data de análise e devem ser interpretados como referência indicativa. A Somnium Properties recomenda a confirmação com avaliador certificado (CMVM) para operações que exijam avaliação formal.</div>';
+    html+='</div>';
+  }
+
+  div.innerHTML=html;
+}
+
+function imprimirRelatorio(){
+  gerarRelatorio();
+  var conteudo=document.getElementById('relatorio-comp').innerHTML;
+  var janela=window.open('','_blank');
+  janela.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Comparáveis — Somnium Properties</title>');
+  janela.document.write('<style>body{font-family:Arial,sans-serif;padding:30px;color:#1A1A1A;max-width:900px;margin:0 auto}@media print{body{padding:15px}}</style></head><body>');
+  janela.document.write(conteudo);
+  janela.document.write('</body></html>');
+  janela.document.close();
+  setTimeout(function(){janela.print();},500);
+}
+
+// Sincronizar título editável com label do resultado
+function syncTitulos(){
+  var t1=document.getElementById('titulo-comp1');
+  var t2=document.getElementById('titulo-comp2');
+  var v1=t1?t1.value||'Tipologia 1':'Tipologia 1';
+  var v2=t2?t2.value||'Tipologia 2':'Tipologia 2';
+  var els=['res-titulo1','titulo-t3-hdr'];
+  els.forEach(function(id){var e=document.getElementById(id);if(e)e.textContent=id.includes('hdr')?v1.toUpperCase()+' — COMPARÁVEIS':v1;});
+  var els2=['res-titulo2','titulo-t1-hdr'];
+  els2.forEach(function(id){var e=document.getElementById(id);if(e)e.textContent=id.includes('hdr')?v2.toUpperCase()+' — COMPARÁVEIS':v2;});
+  // barra resumo
+  set('res-bar-t3', document.getElementById('t3-result')?document.getElementById('t3-result').textContent:'—');
+  set('res-bar-t1', document.getElementById('t1-result')?document.getElementById('t1-result').textContent:'—');
+}
+document.addEventListener('DOMContentLoaded',function(){
+  var t1=document.getElementById('titulo-comp1');
+  var t2=document.getElementById('titulo-comp2');
+  if(t1) t1.addEventListener('input',syncTitulos);
+  if(t2) t2.addEventListener('input',syncTitulos);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOOGLE DRIVE INTEGRATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── GOOGLE AUTH ──────────────────────────────────────────────────────────────
+
+function handleGoogleLogin(response) {
+  var payload = JSON.parse(atob(response.credential.split('.')[1]));
+  document.getElementById('user-avatar').src = payload.picture;
+  document.getElementById('user-name').textContent = payload.name;
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('user-section').style.display = 'flex';
+
+  var tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: function(tokenResponse) {
+      accessToken = tokenResponse.access_token;
+      inicializarDrive();
+    },
+  });
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+function logarOut() {
+  google.accounts.id.disableAutoSelect();
+  accessToken = null;
+  currentImovelId = null;
+  currentImovelNome = null;
+  document.getElementById('login-section').style.display = '';
+  document.getElementById('user-section').style.display = 'none';
+  document.getElementById('imovel-selector').innerHTML = '<option value="">-- Seleccionar imóvel --</option>';
+  document.getElementById('btn-guardar').style.display = 'none';
+  setSaveStatus('');
+}
+
+// ── GOOGLE DRIVE API ─────────────────────────────────────────────────────────
+
+function driveAPI(method, endpoint, body, params) {
+  params = params || {};
+  var url = new URL('https://www.googleapis.com/drive/v3/' + endpoint);
+  Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
+  var options = {
+    method: method,
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json',
+    },
+  };
+  if (body) options.body = JSON.stringify(body);
+  return fetch(url, options).then(function(res){
+    if (!res.ok) throw new Error('Drive API error: ' + res.status);
+    return res.json();
+  });
+}
+
+function driveUpload(metadata, content, fileId) {
+  var url = fileId
+    ? 'https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=multipart'
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+  var boundary = 'somnium_boundary_' + Date.now();
+  var body = [
+    '--' + boundary,
+    'Content-Type: application/json',
+    '',
+    JSON.stringify(metadata),
+    '--' + boundary,
+    'Content-Type: application/json',
+    '',
+    JSON.stringify(content),
+    '--' + boundary + '--',
+  ].join('\r\n');
+
+  return fetch(url, {
+    method: fileId ? 'PATCH' : 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'multipart/related; boundary=' + boundary,
+    },
+    body: body,
+  }).then(function(res){ return res.json(); });
+}
+
+// Encontrar pasta "Departamento Comercial" no Drive
+function encontrarPastaDeptComercial() {
+  return driveAPI('GET', 'files', null, {
+    q: "name='Departamento Comercial' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    fields: 'files(id,name)',
+  }).then(function(result) {
+    if (result.files && result.files.length > 0) return result.files[0].id;
+    // Se não existir, criar
+    return driveAPI('POST', 'files', {
+      name: 'Departamento Comercial',
+      mimeType: 'application/vnd.google-apps.folder',
+    }).then(function(folder){ return folder.id; });
+  });
+}
+
+// Encontrar ou criar subpasta do projecto dentro de Departamento Comercial
+function encontrarOuCriarPastaProjeto(nome) {
+  var deptId = window._driveDeptId;
+  return driveAPI('GET', 'files', null, {
+    q: "name='" + nome.replace(/'/g, "\\'") + "' and mimeType='application/vnd.google-apps.folder' and '" + deptId + "' in parents and trashed=false",
+    fields: 'files(id,name)',
+  }).then(function(result) {
+    if (result.files && result.files.length > 0) return result.files[0].id;
+    return driveAPI('POST', 'files', {
+      name: nome,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [deptId],
+    }).then(function(folder){ return folder.id; });
+  });
+}
+
+// Encontrar calculadora.json dentro de uma pasta de projecto
+function encontrarJsonNaPasta(pastaId) {
+  return driveAPI('GET', 'files', null, {
+    q: "name='calculadora.json' and '" + pastaId + "' in parents and trashed=false",
+    fields: 'files(id,name,modifiedTime)',
+  }).then(function(result) {
+    return (result.files && result.files.length > 0) ? result.files[0] : null;
+  });
+}
+
+function inicializarDrive() {
+  setSaveStatus('A ligar ao Google Drive...');
+  encontrarPastaDeptComercial().then(function(deptId) {
+    window._driveDeptId = deptId;
+    return listarProjetos(deptId);
+  }).then(function() {
+    setSaveStatus('✓ Ligado ao Google Drive');
+  }).catch(function(e) {
+    setSaveStatus('⚠ Erro ao ligar ao Drive: ' + e.message);
+    console.error(e);
+  });
+}
+
+// Listar subpastas de Departamento Comercial como projectos
+function listarProjetos(deptId) {
+  return driveAPI('GET', 'files', null, {
+    q: "'" + deptId + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    fields: 'files(id,name,modifiedTime)',
+    orderBy: 'name',
+    pageSize: 100,
+  }).then(function(result) {
+    var selector = document.getElementById('imovel-selector');
+    selector.innerHTML = '<option value="">-- Seleccionar projecto --</option>';
+    window._projetosPastas = {};
+    if (result.files) {
+      result.files.forEach(function(folder) {
+        var opt = document.createElement('option');
+        opt.value = folder.id;
+        opt.textContent = folder.name;
+        selector.appendChild(opt);
+        window._projetosPastas[folder.id] = folder.name;
+      });
+    }
+  });
+}
+
+// ── CRUD IMÓVEIS ─────────────────────────────────────────────────────────────
+
+function novoImovel() {
+  var nome = prompt('Nome do projecto (ex: Prédio Rua do Clube):\n\nSe já existir uma pasta com este nome no Departamento Comercial, os dados serão guardados lá dentro.');
+  if (!nome || !nome.trim()) return;
+  if (!accessToken || !window._driveDeptId) {
+    alert('Por favor faça login com o Google primeiro.');
+    return;
+  }
+  currentImovelNome = nome.trim();
+  currentImovelId = null;
+  window._currentPastaId = null;
+  limparCamposDrive();
+  calc();
+  guardarImovel().then(function(){
+    setSaveStatus('✓ Novo projecto criado: ' + currentImovelNome);
+  });
+}
+
+function carregarImovel(pastaId) {
+  if (!pastaId || !accessToken) return;
+  setSaveStatus('A carregar...');
+  currentImovelNome = window._projetosPastas[pastaId] || 'Projecto';
+  window._currentPastaId = pastaId;
+
+  encontrarJsonNaPasta(pastaId).then(function(file) {
+    if (!file) {
+      // Pasta existe mas sem calculadora.json — limpar campos
+      currentImovelId = null;
+      limparCamposDrive();
+      calc();
+      document.getElementById('btn-guardar').style.display = '';
+      setSaveStatus('✓ Projecto: ' + currentImovelNome + ' (sem dados guardados — preencha e guarde)');
+      return;
+    }
+    currentImovelId = file.id;
+    return fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media', {
+      headers: { 'Authorization': 'Bearer ' + accessToken }
+    }).then(function(res){ return res.json(); })
+    .then(function(dados) {
+      preencherCamposDrive(dados);
+      calc();
+      calcComp();
+      document.getElementById('btn-guardar').style.display = '';
+      var modDate = dados.meta && dados.meta.modificado ? new Date(dados.meta.modificado).toLocaleString('pt-PT') : '';
+      setSaveStatus('✓ Carregado: ' + currentImovelNome + (modDate ? ' (' + modDate + ')' : ''));
+    });
+  }).catch(function(e) {
+    setSaveStatus('⚠ Erro ao carregar: ' + e.message);
+    console.error(e);
+  });
+}
+
+function guardarImovel() {
+  if (!accessToken || !window._driveDeptId) {
+    alert('Por favor faça login com o Google primeiro.');
+    return Promise.resolve();
+  }
+  if (!currentImovelNome) {
+    var nome = prompt('Nome do projecto:');
+    if (!nome) return Promise.resolve();
+    currentImovelNome = nome.trim();
+  }
+  setSaveStatus('A guardar...');
+  var dados = recolherDadosDrive();
+
+  // Encontrar ou criar pasta do projecto, depois guardar calculadora.json lá dentro
+  var promise;
+  if (window._currentPastaId) {
+    promise = Promise.resolve(window._currentPastaId);
+  } else {
+    promise = encontrarOuCriarPastaProjeto(currentImovelNome);
+  }
+
+  return promise.then(function(pastaId) {
+    window._currentPastaId = pastaId;
+    var metadata = currentImovelId
+      ? { name: 'calculadora.json' }
+      : { name: 'calculadora.json', parents: [pastaId] };
+    return driveUpload(metadata, dados, currentImovelId);
+  }).then(function(result) {
+    currentImovelId = result.id;
+    return listarProjetos(window._driveDeptId);
+  }).then(function() {
+    if (window._currentPastaId) {
+      document.getElementById('imovel-selector').value = window._currentPastaId;
+    }
+    document.getElementById('btn-guardar').style.display = '';
+    setSaveStatus('✓ Guardado em "Dept. Comercial/' + currentImovelNome + '" às ' + new Date().toLocaleTimeString('pt-PT'));
+  }).catch(function(e) {
+    setSaveStatus('⚠ Erro ao guardar: ' + e.message);
+    console.error(e);
+  });
+}
+
+function setSaveStatus(msg) {
+  var el = document.getElementById('save-status');
+  if (el) el.textContent = msg;
+}
+
+// ── AUTO-SAVE ────────────────────────────────────────────────────────────────
+
+function autoSave() {
+  if (!currentImovelId || !accessToken) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(function() {
+    guardarImovel().catch(console.error);
+  }, 5000);
+  setSaveStatus('Alterações por guardar...');
+}
+
+// ── RECOLHER / PREENCHER DADOS ──────────────────────────────────────────────
+
+function recolherDadosDrive() {
+  var gv = function(id) { var el = document.getElementById(id); if(!el) return null; return el.tagName === 'SELECT' ? el.value : (parseFloat(el.value) || el.value); };
+  var vars = ['neg','area','loc','idade','cons','outros'];
+
+  // Recolher comparáveis (5 por tipologia)
+  function recolherComps(bodyId) {
+    var comps = [];
+    for (var i = 1; i <= 5; i++) {
+      var ep = document.getElementById(bodyId + '-p' + i);
+      var ea = document.getElementById(bodyId + '-a' + i);
+      if (!ep || !ea) continue;
+      var preco = parseFloat(ep.value) || 0;
+      var area = parseFloat(ea.value) || 0;
+      var nota_el = document.getElementById(bodyId + '-nota' + i);
+      var link_el = document.getElementById(bodyId + '-link' + i);
+      var ajustes = {};
+      vars.forEach(function(v) {
+        var el = document.getElementById(bodyId + '-' + v + i);
+        ajustes[v] = el ? parseFloat(el.value) || 0 : 0;
+      });
+      comps.push({
+        preco: preco,
+        area: area,
+        ajustes: ajustes,
+        nota: nota_el ? nota_el.value : '',
+        link: link_el ? link_el.value : ''
+      });
+    }
+    return comps;
+  }
+
+  // Recolher investidores CAEP
+  var investidores = [];
+  p_investidores.forEach(function(inv) {
+    var nome_el = document.getElementById('nome_' + inv.id);
+    var pct_el = document.getElementById('p-pct-' + inv.id);
+    var tipo_el = document.getElementById('tipo_' + inv.id);
+    var cap_el = document.getElementById('cap_' + inv.id);
+    investidores.push({
+      nome: nome_el ? nome_el.value : '',
+      pct: pct_el ? parseInt(pct_el.value) : 0,
+      tipo: tipo_el ? tipo_el.value : 'empresa',
+      capital: cap_el ? parseFloat(cap_el.value) || 0 : 0
+    });
+  });
+
+  return {
+    meta: {
+      nome: currentImovelNome,
+      criado: new Date().toISOString(),
+      modificado: new Date().toISOString(),
+      versao: '1.0'
+    },
+    calculadora: {
+      compra: gv('compra'), vpt: gv('vpt'), finalidade: gv('finalidade'),
+      escrit: gv('escrit'), cpcv_c: gv('cpcv_c'), due_dil: gv('due_dil'),
+      perc_fin: gv('perc_fin'), prazo: gv('prazo'), tan: gv('tan'),
+      tipo_taxa: gv('tipo_taxa'), comis_banc: gv('comis_banc'), hipot: gv('hipot'),
+      obra: gv('obra'), pmo: gv('pmo'), aru: gv('aru'), amp: gv('amp'), lic: gv('lic'),
+      meses: gv('meses'), seg: gv('seg'), cond: gv('cond'), util: gv('util'),
+      ntranch: gv('ntranch'), ctranch: gv('ctranch'), taxa_imi: gv('taxa_imi'),
+      lig_serv: gv('lig_serv'), vvr: gv('vvr'), com_pct: gv('com_pct'),
+      cpcv_v: gv('cpcv_v'), cert_en: gv('cert_en'), staging: gv('staging'),
+      outros_v: gv('outros_v'), regime: gv('regime'), derrama_pct: gv('derrama_pct'),
+      ano_aq: gv('ano_aq'), englobamento: gv('englobamento'), irs_taxa: gv('irs_taxa'),
+      pct_div: gv('pct_div')
+    },
+    comparaveis: {
+      titulo1: (document.getElementById('titulo-comp1') || {}).value || '',
+      titulo2: (document.getElementById('titulo-comp2') || {}).value || '',
+      c3_area: gv('c3-area'), c3_renda: gv('c3-renda'), c3_yield: gv('c3-yield'),
+      c1_area: gv('c1-area'), c1_renda: gv('c1-renda'), c1_yield: gv('c1-yield'),
+      t3_comps: recolherComps('t3-body'),
+      t1_comps: recolherComps('t1-body')
+    },
+    caep: {
+      base_dist: gv('p-base-dist'),
+      estrutura: gv('p-estrutura'),
+      pct_somnium: gv('p-pct-somnium'),
+      investidores: investidores
+    }
+  };
+}
+
+function preencherCamposDrive(dados) {
+  var sv = function(id, val) { var el = document.getElementById(id); if(el && val !== null && val !== undefined) el.value = val; };
+  var c = dados.calculadora || {};
+
+  sv('compra', c.compra); sv('vpt', c.vpt);
+  if(c.finalidade) document.getElementById('finalidade').value = c.finalidade;
+  sv('escrit', c.escrit); sv('cpcv_c', c.cpcv_c); sv('due_dil', c.due_dil);
+  sv('perc_fin', c.perc_fin); sv('prazo', c.prazo); sv('tan', c.tan);
+  if(c.tipo_taxa) document.getElementById('tipo_taxa').value = c.tipo_taxa;
+  sv('comis_banc', c.comis_banc); sv('hipot', c.hipot);
+  sv('obra', c.obra); sv('pmo', c.pmo);
+  if(c.aru) document.getElementById('aru').value = c.aru;
+  if(c.amp) document.getElementById('amp').value = c.amp;
+  sv('lic', c.lic); sv('meses', c.meses); sv('seg', c.seg); sv('cond', c.cond);
+  sv('util', c.util); sv('ntranch', c.ntranch); sv('ctranch', c.ctranch);
+  sv('taxa_imi', c.taxa_imi); sv('lig_serv', c.lig_serv); sv('vvr', c.vvr);
+  sv('com_pct', c.com_pct); sv('cpcv_v', c.cpcv_v); sv('cert_en', c.cert_en);
+  sv('staging', c.staging); sv('outros_v', c.outros_v);
+  if(c.regime) document.getElementById('regime').value = c.regime;
+  sv('derrama_pct', c.derrama_pct); sv('ano_aq', c.ano_aq);
+  if(c.englobamento) document.getElementById('englobamento').value = c.englobamento;
+  sv('irs_taxa', c.irs_taxa); sv('pct_div', c.pct_div);
+
+  // Comparáveis
+  var cp = dados.comparaveis || {};
+  var t1el = document.getElementById('titulo-comp1'); if(t1el) t1el.value = cp.titulo1 || '';
+  var t2el = document.getElementById('titulo-comp2'); if(t2el) t2el.value = cp.titulo2 || '';
+  sv('c3-area', cp.c3_area); sv('c3-renda', cp.c3_renda); sv('c3-yield', cp.c3_yield);
+  sv('c1-area', cp.c1_area); sv('c1-renda', cp.c1_renda); sv('c1-yield', cp.c1_yield);
+  syncTitulos();
+
+  // Preencher comparáveis individuais
+  var vars = ['neg','area','loc','idade','cons','outros'];
+  function preencherComps(bodyId, comps) {
+    if (!comps || !comps.length) return;
+    for (var i = 0; i < comps.length && i < 5; i++) {
+      var c = comps[i];
+      var idx = i + 1;
+      var ep = document.getElementById(bodyId + '-p' + idx);
+      var ea = document.getElementById(bodyId + '-a' + idx);
+      if (ep && c.preco) ep.value = c.preco;
+      if (ea && c.area) ea.value = c.area;
+      var nota_el = document.getElementById(bodyId + '-nota' + idx);
+      var link_el = document.getElementById(bodyId + '-link' + idx);
+      if (nota_el && c.nota) nota_el.value = c.nota;
+      if (link_el && c.link) link_el.value = c.link;
+      if (c.ajustes) {
+        vars.forEach(function(v) {
+          var el = document.getElementById(bodyId + '-' + v + idx);
+          if (el && c.ajustes[v] !== undefined) el.value = c.ajustes[v];
+        });
+      }
+    }
+  }
+  preencherComps('t3-body', cp.t3_comps);
+  preencherComps('t1-body', cp.t1_comps);
+
+  // CAEP
+  var caep = dados.caep || {};
+  sv('p-base-dist', caep.base_dist);
+  sv('p-estrutura', caep.estrutura);
+  if (caep.pct_somnium !== undefined && caep.pct_somnium !== null) {
+    sv('p-pct-somnium', caep.pct_somnium);
+    syncSomnium();
+  }
+  // Remover investidores existentes e recriar
+  var ids_to_remove = p_investidores.map(function(inv){ return inv.id; });
+  ids_to_remove.forEach(function(id){ removerInvestidor(id); });
+  if (caep.investidores && caep.investidores.length > 0) {
+    caep.investidores.forEach(function(inv_data) {
+      adicionarInvestidor();
+      var last = p_investidores[p_investidores.length - 1];
+      var nome_el = document.getElementById('nome_' + last.id);
+      var pct_el = document.getElementById('p-pct-' + last.id);
+      var tipo_el = document.getElementById('tipo_' + last.id);
+      var cap_el = document.getElementById('cap_' + last.id);
+      if (nome_el) nome_el.value = inv_data.nome || '';
+      if (pct_el) pct_el.value = inv_data.pct || 0;
+      if (tipo_el) tipo_el.value = inv_data.tipo || 'empresa';
+      if (cap_el && inv_data.capital) cap_el.value = inv_data.capital;
+    });
+  }
+}
+
+function limparCamposDrive() {
+  var ids = ['compra','vpt','escrit','cpcv_c','due_dil','perc_fin','prazo','tan',
+    'comis_banc','hipot','obra','pmo','lic','meses','seg','cond','util','ntranch',
+    'ctranch','taxa_imi','lig_serv','vvr','com_pct','cpcv_v','cert_en','staging','outros_v',
+    'derrama_pct','ano_aq','irs_taxa','pct_div'];
+  ids.forEach(function(id) { var el = document.getElementById(id); if(el) el.value = 0; });
+
+  // Limpar comparáveis
+  for (var t = 0; t < 2; t++) {
+    var bodyId = t === 0 ? 't3-body' : 't1-body';
+    for (var i = 1; i <= 5; i++) {
+      ['p','a','nota','link','neg','area','loc','idade','cons','outros'].forEach(function(k){
+        var el = document.getElementById(bodyId + '-' + k + i);
+        if (el) el.value = k === 'nota' || k === 'link' ? '' : 0;
+      });
+    }
+  }
+  var t1el = document.getElementById('titulo-comp1'); if(t1el) t1el.value = '';
+  var t2el = document.getElementById('titulo-comp2'); if(t2el) t2el.value = '';
+
+  // Limpar CAEP
+  var ids_to_remove = p_investidores.map(function(inv){ return inv.id; });
+  ids_to_remove.forEach(function(id){ removerInvestidor(id); });
+  var ps = document.getElementById('p-pct-somnium'); if(ps) { ps.value = 40; syncSomnium(); }
+}
+</script>
+</body>
+</html>
