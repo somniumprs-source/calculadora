@@ -1887,14 +1887,19 @@ function driveUpload(metadata, content, fileId) {
   }).then(function(res){ return res.json(); });
 }
 
-// Encontrar pasta "Departamento Comercial" no Drive
+// Encontrar pasta root dos imóveis no Drive
+// Procura "Departamento Comercial" ou "ADICIONADOS_CLAUDE" (pasta usada pelo sync Notion)
 function encontrarPastaDeptComercial() {
   return driveAPI('GET', 'files', null, {
-    q: "name='Departamento Comercial' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    q: "mimeType='application/vnd.google-apps.folder' and trashed=false and (name='Departamento Comercial' or name='ADICIONADOS_CLAUDE')",
     fields: 'files(id,name)',
   }).then(function(result) {
-    if (result.files && result.files.length > 0) return result.files[0].id;
-    // Se não existir, criar
+    if (result.files && result.files.length > 0) {
+      // Preferir ADICIONADOS_CLAUDE se existir (é a pasta usada pelo sync)
+      var adicionados = result.files.find(function(f){ return f.name === 'ADICIONADOS_CLAUDE'; });
+      return adicionados ? adicionados.id : result.files[0].id;
+    }
+    // Se nenhuma existir, criar Departamento Comercial
     return driveAPI('POST', 'files', {
       name: 'Departamento Comercial',
       mimeType: 'application/vnd.google-apps.folder',
@@ -1920,11 +1925,30 @@ function encontrarOuCriarPastaProjeto(nome) {
   });
 }
 
-// Encontrar calculadora.json dentro de uma pasta de projecto
-function encontrarJsonNaPasta(pastaId) {
+// Encontrar ou criar subpasta "3. Estudo Mercado" dentro da pasta do projecto
+function encontrarOuCriarEstudoMercado(pastaProjetoId) {
   return driveAPI('GET', 'files', null, {
-    q: "name='calculadora.json' and '" + pastaId + "' in parents and trashed=false",
-    fields: 'files(id,name,modifiedTime)',
+    q: "name='3. Estudo Mercado' and mimeType='application/vnd.google-apps.folder' and '" + pastaProjetoId + "' in parents and trashed=false",
+    fields: 'files(id,name)',
+  }).then(function(result) {
+    if (result.files && result.files.length > 0) return result.files[0].id;
+    // Se não existir, criar
+    return driveAPI('POST', 'files', {
+      name: '3. Estudo Mercado',
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [pastaProjetoId],
+    }).then(function(folder){ return folder.id; });
+  });
+}
+
+// Encontrar calculadora.json dentro de "3. Estudo Mercado"
+function encontrarJsonNaPasta(pastaId) {
+  return encontrarOuCriarEstudoMercado(pastaId).then(function(estudoId) {
+    window._currentEstudoMercadoId = estudoId;
+    return driveAPI('GET', 'files', null, {
+      q: "name='calculadora.json' and '" + estudoId + "' in parents and trashed=false",
+      fields: 'files(id,name,modifiedTime)',
+    });
   }).then(function(result) {
     return (result.files && result.files.length > 0) ? result.files[0] : null;
   });
@@ -2053,9 +2077,13 @@ function guardarImovel() {
 
   return promise.then(function(pastaId) {
     window._currentPastaId = pastaId;
+    // Encontrar ou criar "3. Estudo Mercado" dentro da pasta do projecto
+    return encontrarOuCriarEstudoMercado(pastaId);
+  }).then(function(estudoId) {
+    window._currentEstudoMercadoId = estudoId;
     var metadata = currentImovelId
       ? { name: 'calculadora.json' }
-      : { name: 'calculadora.json', parents: [pastaId] };
+      : { name: 'calculadora.json', parents: [estudoId] };
     return driveUpload(metadata, dados, currentImovelId);
   }).then(function(result) {
     currentImovelId = result.id;
@@ -2065,7 +2093,7 @@ function guardarImovel() {
       document.getElementById('imovel-selector').value = window._currentPastaId;
     }
     document.getElementById('btn-guardar').style.display = '';
-    setSaveStatus('✓ Guardado em "Dept. Comercial/' + currentImovelNome + '" às ' + new Date().toLocaleTimeString('pt-PT'));
+    setSaveStatus('✓ Guardado em "' + currentImovelNome + '/3. Estudo Mercado" às ' + new Date().toLocaleTimeString('pt-PT'));
   }).catch(function(e) {
     setSaveStatus('⚠ Erro ao guardar: ' + e.message);
     console.error(e);
