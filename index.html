@@ -4,18 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Somnium Properties — Calculadora</title>
+<!-- Security headers via meta tags -->
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta name="referrer" content="no-referrer">
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Google API Client -->
 <script src="https://apis.google.com/js/api.js"></script>
 <script>
+"use strict";
 const GOOGLE_CLIENT_ID = '554869709587-3utmmi1de4tbhhl22dc1o68ovvtk89mb.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/drive';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME = 'Somnium Properties';
 let accessToken = null;
 let currentImovelId = null;
 let currentImovelNome = null;
 let autoSaveTimer = null;
+let _tokenExpiry = 0;
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1696,7 +1702,8 @@ function imprimirRelatorio(){
   gerarRelatorio();
   var conteudo=document.getElementById('relatorio-comp').innerHTML;
   var janela=window.open('','_blank');
-  janela.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Comparáveis — Somnium Properties</title>');
+  if (!janela) { alert('Popup bloqueado — permita popups para este site.'); return; }
+  janela.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:"><title>Relatório Comparáveis — Somnium Properties</title>');
   janela.document.write('<style>body{font-family:Arial,sans-serif;padding:30px;color:#1A1A1A;max-width:900px;margin:0 auto}@media print{body{padding:15px}}</style></head><body>');
   janela.document.write(conteudo);
   janela.document.write('</body></html>');
@@ -1732,38 +1739,88 @@ document.addEventListener('DOMContentLoaded',function(){
 // ── GOOGLE AUTH ──────────────────────────────────────────────────────────────
 
 function handleGoogleLogin(response) {
-  var payload = JSON.parse(atob(response.credential.split('.')[1]));
-  document.getElementById('user-avatar').src = payload.picture;
-  document.getElementById('user-name').textContent = payload.name;
-  document.getElementById('login-section').style.display = 'none';
-  document.getElementById('user-section').style.display = 'flex';
+  try {
+    var parts = response.credential.split('.');
+    if (parts.length !== 3) throw new Error('Invalid JWT');
+    var payload = JSON.parse(atob(parts[1]));
+    // Validate issuer
+    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+      throw new Error('Invalid token issuer');
+    }
+    // Validate audience matches our client ID
+    if (payload.aud !== GOOGLE_CLIENT_ID) {
+      throw new Error('Invalid token audience');
+    }
+    // Validate expiry
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      throw new Error('Token expired');
+    }
+    // Sanitize avatar URL — only allow Google domains
+    var avatarUrl = payload.picture || '';
+    if (avatarUrl && !avatarUrl.match(/^https:\/\/[a-z0-9.-]*google(usercontent)?\.com\//)) {
+      avatarUrl = '';
+    }
+    document.getElementById('user-avatar').src = avatarUrl;
+    document.getElementById('user-name').textContent = (payload.name || '').substring(0, 100);
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('user-section').style.display = 'flex';
 
-  var tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: SCOPES,
-    callback: function(tokenResponse) {
-      accessToken = tokenResponse.access_token;
-      inicializarDrive();
-    },
-  });
-  tokenClient.requestAccessToken({ prompt: '' });
+    var tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: SCOPES,
+      callback: function(tokenResponse) {
+        if (tokenResponse.error) {
+          setSaveStatus('⚠ Erro de autenticação: ' + tokenResponse.error);
+          return;
+        }
+        accessToken = tokenResponse.access_token;
+        _tokenExpiry = Date.now() + (tokenResponse.expires_in || 3600) * 1000;
+        inicializarDrive();
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: '' });
+  } catch(e) {
+    console.error('Login failed:', e);
+    alert('Erro no login. Tente novamente.');
+  }
 }
 
 function logarOut() {
   google.accounts.id.disableAutoSelect();
+  // Revoke token before clearing
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, function() {});
+  }
   accessToken = null;
+  _tokenExpiry = 0;
   currentImovelId = null;
   currentImovelNome = null;
+  window._driveDeptId = null;
+  window._currentPastaId = null;
+  window._projetosPastas = {};
   document.getElementById('login-section').style.display = '';
   document.getElementById('user-section').style.display = 'none';
+  document.getElementById('user-avatar').src = '';
+  document.getElementById('user-name').textContent = '';
   document.getElementById('imovel-selector').innerHTML = '<option value="">-- Seleccionar imóvel --</option>';
   document.getElementById('btn-guardar').style.display = 'none';
   setSaveStatus('');
 }
 
+function isTokenValid() {
+  return accessToken && Date.now() < _tokenExpiry;
+}
+
 // ── GOOGLE DRIVE API ─────────────────────────────────────────────────────────
 
 function driveAPI(method, endpoint, body, params) {
+  if (!isTokenValid()) {
+    return Promise.reject(new Error('Sessão expirada. Faça login novamente.'));
+  }
+  // Validate endpoint to prevent SSRF
+  if (!/^[a-zA-Z0-9\/_\-\.]+$/.test(endpoint)) {
+    return Promise.reject(new Error('Invalid API endpoint'));
+  }
   params = params || {};
   var url = new URL('https://www.googleapis.com/drive/v3/' + endpoint);
   Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
@@ -1776,12 +1833,25 @@ function driveAPI(method, endpoint, body, params) {
   };
   if (body) options.body = JSON.stringify(body);
   return fetch(url, options).then(function(res){
+    if (res.status === 401) {
+      accessToken = null;
+      _tokenExpiry = 0;
+      setSaveStatus('⚠ Sessão expirada — faça login novamente');
+      throw new Error('Token expirado');
+    }
     if (!res.ok) throw new Error('Drive API error: ' + res.status);
     return res.json();
   });
 }
 
 function driveUpload(metadata, content, fileId) {
+  if (!isTokenValid()) {
+    return Promise.reject(new Error('Sessão expirada. Faça login novamente.'));
+  }
+  // Validate fileId if provided (must be alphanumeric/dash/underscore)
+  if (fileId && !/^[a-zA-Z0-9_\-]+$/.test(fileId)) {
+    return Promise.reject(new Error('Invalid file ID'));
+  }
   var url = fileId
     ? 'https://www.googleapis.com/upload/drive/v3/files/' + fileId + '?uploadType=multipart'
     : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
@@ -1827,8 +1897,10 @@ function encontrarPastaDeptComercial() {
 // Encontrar ou criar subpasta do projecto dentro de Departamento Comercial
 function encontrarOuCriarPastaProjeto(nome) {
   var deptId = window._driveDeptId;
+  // Sanitize nome for Drive API query — escape single quotes properly
+  var nomeSafe = sanitizeName(nome).replace(/'/g, "\\'");
   return driveAPI('GET', 'files', null, {
-    q: "name='" + nome.replace(/'/g, "\\'") + "' and mimeType='application/vnd.google-apps.folder' and '" + deptId + "' in parents and trashed=false",
+    q: "name='" + nomeSafe + "' and mimeType='application/vnd.google-apps.folder' and '" + deptId + "' in parents and trashed=false",
     fields: 'files(id,name)',
   }).then(function(result) {
     if (result.files && result.files.length > 0) return result.files[0].id;
@@ -1888,14 +1960,19 @@ function listarProjetos(deptId) {
 
 // ── CRUD IMÓVEIS ─────────────────────────────────────────────────────────────
 
+function sanitizeName(nome) {
+  // Remove characters that could be used for Drive API query injection
+  return nome.replace(/['"\\<>{}]/g, '').replace(/\s+/g, ' ').trim().substring(0, 200);
+}
+
 function novoImovel() {
   var nome = prompt('Nome do projecto (ex: Prédio Rua do Clube):\n\nSe já existir uma pasta com este nome no Departamento Comercial, os dados serão guardados lá dentro.');
   if (!nome || !nome.trim()) return;
-  if (!accessToken || !window._driveDeptId) {
+  if (!isTokenValid() || !window._driveDeptId) {
     alert('Por favor faça login com o Google primeiro.');
     return;
   }
-  currentImovelNome = nome.trim();
+  currentImovelNome = sanitizeName(nome);
   currentImovelId = null;
   window._currentPastaId = null;
   limparCamposDrive();
@@ -1922,10 +1999,16 @@ function carregarImovel(pastaId) {
       return;
     }
     currentImovelId = file.id;
+    // Validate file ID
+    if (!/^[a-zA-Z0-9_\-]+$/.test(file.id)) throw new Error('Invalid file ID');
     return fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media', {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     }).then(function(res){ return res.json(); })
     .then(function(dados) {
+      // Validate loaded data structure
+      if (typeof dados !== 'object' || dados === null || Array.isArray(dados)) {
+        throw new Error('Formato de dados inválido');
+      }
       preencherCamposDrive(dados);
       calc();
       calcComp();
@@ -1940,14 +2023,14 @@ function carregarImovel(pastaId) {
 }
 
 function guardarImovel() {
-  if (!accessToken || !window._driveDeptId) {
+  if (!isTokenValid() || !window._driveDeptId) {
     alert('Por favor faça login com o Google primeiro.');
     return Promise.resolve();
   }
   if (!currentImovelNome) {
     var nome = prompt('Nome do projecto:');
     if (!nome) return Promise.resolve();
-    currentImovelNome = nome.trim();
+    currentImovelNome = sanitizeName(nome);
   }
   setSaveStatus('A guardar...');
   var dados = recolherDadosDrive();
@@ -1988,11 +2071,14 @@ function setSaveStatus(msg) {
 
 // ── AUTO-SAVE ────────────────────────────────────────────────────────────────
 
+var _autoSaving = false;
 function autoSave() {
-  if (!currentImovelId || !accessToken) return;
+  if (!currentImovelId || !isTokenValid()) return;
+  if (_autoSaving) return;
   clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(function() {
-    guardarImovel().catch(console.error);
+    _autoSaving = true;
+    guardarImovel().catch(console.error).finally(function(){ _autoSaving = false; });
   }, 5000);
   setSaveStatus('Alterações por guardar...');
 }
@@ -2084,7 +2170,25 @@ function recolherDadosDrive() {
 }
 
 function preencherCamposDrive(dados) {
-  var sv = function(id, val) { var el = document.getElementById(id); if(el && val !== null && val !== undefined) el.value = val; };
+  var sv = function(id, val) {
+    var el = document.getElementById(id);
+    if (!el || val === null || val === undefined) return;
+    // Sanitize: only accept numbers for number inputs, limited strings for selects
+    if (el.type === 'number' || el.type === 'range') {
+      var n = parseFloat(val);
+      if (!isFinite(n)) return;
+      // Clamp to reasonable range to prevent abuse
+      n = Math.max(-999999999, Math.min(999999999, n));
+      el.value = n;
+    } else if (el.tagName === 'SELECT') {
+      // Only set if value is a valid option
+      var valid = Array.from(el.options).some(function(o){ return o.value === String(val); });
+      if (valid) el.value = val;
+    } else {
+      // Text inputs: limit length and strip potential scripts
+      el.value = String(val).substring(0, 500).replace(/<[^>]*>/g, '');
+    }
+  };
   var c = dados.calculadora || {};
 
   sv('compra', c.compra); sv('vpt', c.vpt);
