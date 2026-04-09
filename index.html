@@ -1952,17 +1952,15 @@ function driveUpload(metadata, content, fileId) {
   }).then(function(res){ return res.json(); });
 }
 
-// Encontrar pasta "Departamento Comercial" no Drive
+// Pasta "Departamento Comercial" dentro de "Somnium Properties" no Drive (ID fixo)
+var DEPT_COMERCIAL_ID = '1KyMJ5AfjrOUgCTHVjUbSV8j2O_WTDLC6';
 function encontrarPastaDeptComercial() {
-  return driveAPI('GET', 'files', null, {
-    q: "name='Departamento Comercial' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-    fields: 'files(id,name)',
+  // Verificar que a pasta existe
+  return driveAPI('GET', 'files/' + DEPT_COMERCIAL_ID, null, {
+    fields: 'id,name,trashed',
   }).then(function(result) {
-    if (result.files && result.files.length > 0) return result.files[0].id;
-    return driveAPI('POST', 'files', {
-      name: 'Departamento Comercial',
-      mimeType: 'application/vnd.google-apps.folder',
-    }).then(function(folder){ return folder.id; });
+    if (result.trashed) throw new Error('Pasta no lixo');
+    return result.id;
   });
 }
 
