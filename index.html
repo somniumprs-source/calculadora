@@ -17,6 +17,7 @@
 const GOOGLE_CLIENT_ID = '554869709587-3utmmi1de4tbhhl22dc1o68ovvtk89mb.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 const FOLDER_NAME = 'Somnium Properties';
+const ALLOWED_EMAILS = ['somniumprs@gmail.com'];
 let accessToken = null;
 let currentImovelId = null;
 let currentImovelNome = null;
@@ -1754,6 +1755,13 @@ function handleGoogleLogin(response) {
     // Validate expiry
     if (payload.exp && payload.exp * 1000 < Date.now()) {
       throw new Error('Token expired');
+    }
+    // Validate email is in allowed list
+    var userEmail = (payload.email || '').toLowerCase();
+    if (!ALLOWED_EMAILS.includes(userEmail)) {
+      alert('Acesso restrito. O email ' + userEmail + ' não está autorizado.');
+      google.accounts.id.disableAutoSelect();
+      return;
     }
     // Sanitize avatar URL — only allow Google domains
     var avatarUrl = payload.picture || '';
