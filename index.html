@@ -1887,19 +1887,13 @@ function driveUpload(metadata, content, fileId) {
   }).then(function(res){ return res.json(); });
 }
 
-// Encontrar pasta root dos imóveis no Drive
-// Procura "Departamento Comercial" ou "ADICIONADOS_CLAUDE" (pasta usada pelo sync Notion)
+// Encontrar pasta "Departamento Comercial" no Drive
 function encontrarPastaDeptComercial() {
   return driveAPI('GET', 'files', null, {
-    q: "mimeType='application/vnd.google-apps.folder' and trashed=false and (name='Departamento Comercial' or name='ADICIONADOS_CLAUDE')",
+    q: "name='Departamento Comercial' and mimeType='application/vnd.google-apps.folder' and trashed=false",
     fields: 'files(id,name)',
   }).then(function(result) {
-    if (result.files && result.files.length > 0) {
-      // Preferir ADICIONADOS_CLAUDE se existir (é a pasta usada pelo sync)
-      var adicionados = result.files.find(function(f){ return f.name === 'ADICIONADOS_CLAUDE'; });
-      return adicionados ? adicionados.id : result.files[0].id;
-    }
-    // Se nenhuma existir, criar Departamento Comercial
+    if (result.files && result.files.length > 0) return result.files[0].id;
     return driveAPI('POST', 'files', {
       name: 'Departamento Comercial',
       mimeType: 'application/vnd.google-apps.folder',
